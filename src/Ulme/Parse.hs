@@ -55,7 +55,12 @@ module Ulme.Parse
 , sequence
 , map
 , withError
-, errMsg -- exported for testing
+
+-- exports for testing
+, Position
+, errMsg
+, consume
+, andMove
 )
 where
 
@@ -74,18 +79,55 @@ type Parser a
 
     If it fails, it results in an `Err errs` where `errs`
     is a list of `ParseError` values.  If it succeeds,
-    it results in an `Ok ( n , v , s )` where `n` is the
-    number of consumed characters, `v` is a value of type
-    `a` and `s` is the remaining input.
+    it results in an `Ok ( p , v , s )` where `p` is the
+    resulting cursor position, `v` is a value of type `a`
+    and `s` is the remaining input.
 -}
-    = String -> Result ( List ParseError ) ( Integer , a , String )
+    = String -> Result ( List ParseError ) ( Position , a , String )
 
 
 type ParseError
 {-
     A parse error type.
 -}
-    = ( Integer , String )
+    = ( Position , String )
+
+
+type Position
+{-
+    A type for cursor positions.
+
+    When parsing fails, I would like to know where exactly
+    it failed.  When parsing succeeds, we can discard
+    this information.
+
+    The form is `( line , column )`, both 1-indexed.
+-}
+    = ( Integer , Integer )
+
+
+consume :: String -> Position -> Position
+{-
+    Calculate how many lines and columns we move forward
+    when parsing the given input string.
+-}
+consume input ( line , column ) =
+    case input of
+    "" -> ( line , column )
+    head : tail ->
+        if head == '\n'
+        then ( line + 1 , 1 ) |> consume tail
+        else ( line , column + 1 ) |> consume tail
+
+
+andMove :: Position -> Position -> Position
+{-
+    Add two cursor positions.
+-}
+andMove ( line2 , col2 ) ( line1 , col1 ) =
+    if line2 == 1
+    then ( line1 , col1 + col2 )
+    else ( line1 + line2 , col2 )
 
 
 string :: String -> Parser ( List String )
@@ -96,12 +138,14 @@ string match input =
     if String.startsWith match input
     then
         Ok
-            ( String.length match
+            ( ( 1 , 1 ) |> consume match
             , [ match ]
             , String.dropLeft ( String.length match ) input
             )
     else
-        Err [ ( 0 , "Expecting `" ++ match ++ "`" ) ]
+        Err
+            [ ( ( 1, 1 ) , "Expecting `" ++ match ++ "`" )
+            ]
 
 
 optional :: Parser ( List a ) -> Parser ( List a )
@@ -111,7 +155,7 @@ optional :: Parser ( List a ) -> Parser ( List a )
 optional parse input =
     case parse input of
     Ok value -> Ok value
-    Err _error -> Ok ( 0 , [] , input )
+    Err _error -> Ok ( ( 1 , 1 ) , [] , input )
 
 
 throwAway :: Parser ( List a ) -> Parser ( List b )
@@ -120,8 +164,8 @@ throwAway :: Parser ( List a ) -> Parser ( List b )
 -}
 throwAway =
     map ( always [] ) >> \ parse input -> case parse input of
+    Ok ( pos , _done , pending ) -> Ok ( pos , [] , pending )
     Err errs -> Err errs
-    Ok ( n , _done , pending ) -> Ok ( n , [] , pending )
 
 
 succeed :: a -> Parser a
@@ -132,7 +176,7 @@ succeed :: a -> Parser a
     application of parsers.
 -}
 succeed value input =
-    Ok ( 0 , value , input )
+    Ok ( ( 1 , 1 ) , value , input )
 
 
 fail :: Parser a
@@ -192,12 +236,13 @@ succ :: Parser ( List a ) -> Parser ( List a ) -> Parser ( List a )
 succ parser1 parser2 input =
     case parser1 input of
     Err errs -> Err errs
-    Ok ( n1 , done1 , pending1 ) ->
+    Ok ( pos1 , done1 , pending1 ) ->
         case parser2 pending1 of
+        Ok ( pos2 , done2 , pending2 ) ->
+            Ok ( pos1 |> andMove pos2 , done1 ++ done2 , pending2 )
         Err errs ->
-            Err ( List.map ( Tuple.mapFirst ( + n1 ) ) errs )
-        Ok ( n2 , done2 , pending2 ) ->
-            Ok ( n1 + n2 , done1 ++ done2 , pending2 )
+            let move pos = pos1 |> andMove pos
+            in Err ( List.map ( Tuple.mapFirst move ) errs )
 
 
 sequence :: List ( Parser ( List a ) ) -> Parser ( List a )
@@ -215,7 +260,7 @@ map :: ( a -> b ) -> Parser a -> Parser b
 map fn parse input =
     case parse input of
     Err errs -> Err errs
-    Ok ( n , done , pending ) -> Ok ( n , fn done , pending )
+    Ok ( pos , done , pending ) -> Ok ( pos , fn done , pending )
 
 
 withError :: String -> Parser a -> Parser a
@@ -227,8 +272,8 @@ withError error parse input =
     Ok value -> Ok value
     Err errs ->
         case List.head errs of
-        Nothing -> Err [ ( 0 , error ) ]
-        Just ( n , _ ) -> Err [ ( n , error ) ]
+        Nothing -> Err [ ( ( 1 , 1 ) , error ) ]
+        Just ( pos , _ ) -> Err [ ( pos , error ) ]
 
 
 

@@ -1,17 +1,17 @@
-cabal-version   : 2.2
+cabal-version       : 2.2
 
-name            : ulme-parse
-version         : 0.1.0
-synopsis        : parser combinator functions for combinatory parsing
-homepage        : https://git.sr.ht/~aramis/ulme-parse
-stability       : experimental
+name                : ulme-parse
+version             : 0.1.0
+synopsis            : parser combinator functions for combinatory parsing
+homepage            : https://git.sr.ht/~aramis/ulme-parse
+stability           : experimental
 
-copyright       : (c) 2020 Aramís Concepción Durán
-license         : GPL-3.0-only
-license-file    : LICENSE
+copyright           : (c) 2020 Aramís Concepción Durán
+license             : GPL-3.0-only
+license-file        : LICENSE
 
-author          : Aramís Concepción Durán <aramis@systemli.org>
-maintainer      : Aramís Concepción Durán <aramis@systemli.org>
+author              : Aramís Concepción Durán <aramis@systemli.org>
+maintainer          : Aramís Concepción Durán <aramis@systemli.org>
 
 build-type          : Simple
 extra-source-files  : README.md
@@ -41,6 +41,11 @@ common fields
         -Wno-safe
         -Wno-type-defaults
         -Wno-unsafe
+    -- dev
+       --Wno-unused-imports
+       --Wno-unused-local-binds
+       --Wno-unused-matches
+       --Wno-unused-top-binds
 
     default-extensions :
         ApplicativeDo
@@ -67,7 +72,7 @@ library
 
 
 test-suite test
--- executable test
+--executable test
     import          : fields
     main-is         : Tests.hs
     other-modules   : Ulme.Parse
@@ -80,5 +85,5 @@ test-suite test
 
 
 source-repository head
-    type        : git
-    location    : https://git.sr.ht/~aramis/cabal-template
+    type            : git
+    location        : https://git.sr.ht/~aramis/ulme-parse

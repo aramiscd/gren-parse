@@ -23,7 +23,7 @@ main =
     hspec ( parallel tests )
 
 
-tests = modifyMaxSuccess ( always 10000 ) <| do
+tests = modifyMaxSuccess ( always 20000 ) <| do
 
     describe "Parse.string" <| do
     ------------------------------------------------------------------
@@ -38,12 +38,12 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
                 List.all
                     ( \ n ->
                         let
-                            match  = String.left n input
-                            tail   = String.dropLeft n input
-                            length = String.length match
+                            match = String.left n input
+                            tail  = String.dropLeft n input
+                            len   = String.length match
                         in
                             Parse.string match input
-                            == Ok ( length , [ match ] , tail )
+                            == Ok ( len , [ match ] , tail )
                     )
                     ( List.range 0 ( String.length input )
                     )
@@ -70,15 +70,15 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
 
             QuickCheck.property <| \ ( s1 , s2 ) ->
             let
-                match  = s1 :: String
-                input  = s2 :: String
-                length = String.length match
+                match = s1 :: String
+                input = s2 :: String
+                len   = String.length match
             in
                 isEqual
                     ( Parse.optional ( Parse.string match ) input
                     )
                     ( if String.startsWith match input
-                      then Ok ( 0 , [ match ] , String.dropLeft length input )
+                      then Ok ( len , [ match ] , String.dropLeft len input )
                       else Ok ( 0 , [] , input )
                     )
 
@@ -93,13 +93,13 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
             List.all
                 ( \ n ->
                     let
-                        match  = String.left n input
-                        tail   = String.dropLeft n input
-                        length = String.length match
+                        match = String.left n input
+                        tail  = String.dropLeft n input
+                        len   = String.length match
                     in
                         isEqual 
                             ( Parse.throwAway ( Parse.string match ) input )
-                            ( Ok ( length , [] :: List String , tail ) )
+                            ( Ok ( len , [] :: List String , tail ) )
                 )
                 ( List.range 0 ( String.length input )
                 )
@@ -126,18 +126,19 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
 
             QuickCheck.property <| \ ( s1 , s2 , n ) ->
             let
-                match  = s1    :: String
-                tail   = s2    :: String
-                count  = abs n :: Integer
-                length = String.length match * count               
+                match = s1    :: String
+                tail  = s2    :: String
+                count = abs n :: Integer
+                len   = String.length match * count               
             in
                 match == "" -- prevent infinite loop, see (*)
+                || String.startsWith match tail
                 || isEqual
                     ( Parse.zeroOrMore
                         ( Parse.string match )
                         ( String.repeat count match ++ tail )
                     )
-                    ( Ok ( length , List.repeat count match , tail )
+                    ( Ok ( len , List.repeat count match , tail )
                     )
 
         it "is optional." <|
@@ -162,18 +163,19 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
 
             QuickCheck.property <| \ ( s1 , s2 , n ) ->
             let
-                match  = s1        :: String
-                tail   = s2        :: String
-                count  = abs n + 1 :: Integer
-                length = String.length match * count
+                match = s1        :: String
+                tail  = s2        :: String
+                count = abs n + 1 :: Integer
+                len   = String.length match * count
             in
                 match == "" -- prevent infinite loop, see (*)
+                || String.startsWith match tail
                 || isEqual
                     ( Parse.oneOrMore
                         ( Parse.string match )
                         ( String.repeat count match ++ tail )
                     )
-                    ( Ok ( length , List.repeat count match , tail )
+                    ( Ok ( len , List.repeat count match , tail )
                     )
             {-
                 (*) Greedily parsing any number of empty
@@ -256,11 +258,11 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
 
                 parsers = map Parse.string ss
                 input   = ( String.join "" strings ) ++ tail
-                length  = List.foldr (+) 0 ( map String.length strings )
+                len     = List.foldr (+) 0 ( map String.length strings )
             in
                 isEqual
                     ( Parse.sequence parsers input )
-                    ( Ok ( length , strings , tail ) )
+                    ( Ok ( len , strings , tail ) )
 
         it "fails if one parser fails." <|
         --------------------------------------------------------------
@@ -294,13 +296,13 @@ tests = modifyMaxSuccess ( always 10000 ) <| do
 
             QuickCheck.property <| \ i ->
             let
-                input  = i :: String
-                even   = map String.length >> List.foldr (+) 0 >> modBy 2
-                length = String.length input
+                input = i :: String
+                even  = map String.length >> List.foldr (+) 0 >> modBy 2
+                len   = String.length input
             in
                 isEqual
                     ( Parse.map even ( Parse.string input ) input )
-                    ( Ok ( length , even [ input ] , "" ) )
+                    ( Ok ( len , even [ input ] , "" ) )
 
 
 
