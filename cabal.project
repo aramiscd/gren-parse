@@ -1,6 +1,0 @@
-packages : .
-
-source-repository-package
-    type        : git
-    location    : https://git.sr.ht/~aramis/ulme
-    tag         : v0.3.0
