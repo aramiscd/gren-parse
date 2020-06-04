@@ -55,12 +55,6 @@ module Ulme.Parse
 , sequence
 , map
 , withError
-
--- exports for testing
-, Position
-, errMsg
-, consume
-, andMove
 )
 where
 
@@ -101,33 +95,9 @@ type Position
     it failed.  When parsing succeeds, we can discard
     this information.
 
-    The form is `( line , column )`, both 1-indexed.
+    The form is `( line , column )`, both 0-indexed.
 -}
     = ( Integer , Integer )
-
-
-consume :: String -> Position -> Position
-{-
-    Calculate how many lines and columns we move forward
-    when parsing the given input string.
--}
-consume input ( line , column ) =
-    case input of
-    "" -> ( line , column )
-    head : tail ->
-        if head == '\n'
-        then ( line + 1 , 1 ) |> consume tail
-        else ( line , column + 1 ) |> consume tail
-
-
-andMove :: Position -> Position -> Position
-{-
-    Add two cursor positions.
--}
-andMove ( line2 , col2 ) ( line1 , col1 ) =
-    if line2 == 1
-    then ( line1 , col1 + col2 )
-    else ( line1 + line2 , col2 )
 
 
 string :: String -> Parser ( List String )
@@ -138,13 +108,13 @@ string match input =
     if String.startsWith match input
     then
         Ok
-            ( ( 1 , 1 ) |> consume match
+            ( consume match (0,0)
             , [ match ]
             , String.dropLeft ( String.length match ) input
             )
     else
         Err
-            [ ( ( 1, 1 ) , "Expecting `" ++ match ++ "`" )
+            [ ( (0,0) , "Expecting `" ++ match ++ "`" )
             ]
 
 
@@ -155,7 +125,7 @@ optional :: Parser ( List a ) -> Parser ( List a )
 optional parse input =
     case parse input of
     Ok value -> Ok value
-    Err _error -> Ok ( ( 1 , 1 ) , [] , input )
+    Err _error -> Ok ( (0,0) , [] , input )
 
 
 throwAway :: Parser ( List a ) -> Parser ( List b )
@@ -176,7 +146,7 @@ succeed :: a -> Parser a
     application of parsers.
 -}
 succeed value input =
-    Ok ( ( 1 , 1 ) , value , input )
+    Ok ( (0,0) , value , input )
 
 
 fail :: Parser a
@@ -229,11 +199,11 @@ oneOf parsers =
     List.foldr either fail parsers
 
 
-succ :: Parser ( List a ) -> Parser ( List a ) -> Parser ( List a )
+connect :: Parser ( List a ) -> Parser ( List a ) -> Parser ( List a )
 {-
     Apply two parsers one after the other.
 -}
-succ parser1 parser2 input =
+connect parser1 parser2 input =
     case parser1 input of
     Err errs -> Err errs
     Ok ( pos1 , done1 , pending1 ) ->
@@ -250,7 +220,7 @@ sequence :: List ( Parser ( List a ) ) -> Parser ( List a )
     Apply a list of parsers, one after another.
 -}
 sequence parsers =
-    List.foldr succ ( succeed [] ) parsers
+    List.foldr connect ( succeed [] ) parsers
 
 
 map :: ( a -> b ) -> Parser a -> Parser b
@@ -270,19 +240,33 @@ withError :: String -> Parser a -> Parser a
 withError error parse input =
     case parse input of
     Ok value -> Ok value
-    Err errs ->
-        case List.head errs of
-        Nothing -> Err [ ( ( 1 , 1 ) , error ) ]
-        Just ( pos , _ ) -> Err [ ( pos , error ) ]
+    Err [] -> Err [ ( (0,0) , error ) ]
+    Err ( ( pos , _ ) : _ ) -> Err [ ( pos , error ) ]
 
 
 
 -- Helpers
 
 
-errMsg :: String -> String -> String
+andMove :: Position -> Position -> Position
 {-
-    Print a helpful error message.
+    Add two cursor positions.
 -}
-errMsg expected _got =
-    "Expecting " ++ expected
+andMove ( line2 , col2 ) ( line1 , col1 ) =
+    if line2 == 0
+    then ( line1 , col1 + col2 )
+    else ( line1 + line2 , col2 )
+
+
+consume :: String -> Position -> Position
+{-
+    Calculate how many lines and columns we move forward
+    when parsing the given input string.
+-}
+consume input ( line , column ) =
+    case input of
+    "" -> ( line , column )
+    head : tail ->
+        if head == '\n'
+        then consume tail ( line + 1 , 0 )
+        else consume tail ( line , column + 1 )
