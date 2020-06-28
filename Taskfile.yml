@@ -19,7 +19,7 @@ tasks :
         cmds : [ " cabal --overwrite-policy=always v2-install " ]
 
     clean :
-        cmds : [ " rm -rf dist-newstyle/build/x86_64-linux/ghc-8.6.5/ulme-parse-0.1.0/ " ]
+        cmds : [ " rm -rf dist-newstyle/build/x86_64-linux/ghc-8.6.5/ulme-parse-* " ]
 
     clean-all :
         cmds : [ " cabal v2-clean " ]
