@@ -1,3 +1,6 @@
+module Main ( main ) where
+
+    
 import Ulme
 
 import qualified Test.QuickCheck    as QuickCheck
@@ -5,121 +8,89 @@ import qualified Ulme.List          as List
 import qualified Ulme.Parse         as Parse
 import qualified Ulme.String        as String
 
+import Test.Hspec               ( describe , hspec , it , parallel , shouldBe )
 import Test.Hspec.QuickCheck    ( modifyMaxSuccess )
 import Ulme.Parse               ( Parser )
 
-import Test.Hspec
-    ( describe
- -- , focus
-    , hspec
-    , it
-    , parallel
- -- , pending
-    , shouldBe
-    )
+import Test.QuickCheck.Instances.Natural ()
 
 
 main :: IO ()
-main =
-    hspec ( parallel tests )
+main = hspec ( parallel tests )
 
 
 tests = modifyMaxSuccess ( always 20000 ) <| do
 
-
     describe "Parse.string" <| do
     ------------------------------------------------------------------
 
-
         it "parses any matching string." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ string ->
-            let
-                input = string :: String
-            in
-                List.all
-                    ( \ n ->
-                        let
-                            match = String.left n input
-                            tail  = String.dropLeft n input
-                        in
-                            Parse.string match input
-                            == Ok ( consume match (0,0) , [ match ] , tail )
-                    )
-                    ( List.range 0 ( String.length input )
-                    )
+            \ input ->
 
+            List.all
+                ( \ n ->
+                    let
+                        match = String.left n input
+                        tail = String.dropLeft n input
+                    in
+                        Parse.string match input == Ok ( consume match (0,0) , [ match ] , tail )
+                )
+                ( List.range 0 ( String.length input )
+                )
 
         it "refuses to parse any non-matching string." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 ) ->
-            let
-                match = s1 :: String
-                input = s2 :: String
-            in
-                String.startsWith match input
-                || isEqual
-                    ( Parse.string match input )
-                    ( Err [ ( (0,0) , errMsg match ) ] )
+            \ ( match , input ) ->
+
+            String.startsWith match input
+            || isEqual ( Parse.string match input ) ( Err [ ( (0,0) , errMsg match ) ] )
 
 
         it "handles newlines correctly." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ strings ->
+            \ strings ->
+
             let
-                lines =
-                    ( strings :: List String )
-                    |> map ( String.filter ( /= '\n' ) )
-                
-                input =
-                    String.join "\n" lines
-
-                position =
-                    case List.head ( List.reverse lines ) of
+                lines = ( strings :: List String ) |> map ( String.filter ( /= '\n' ) ) 
+                input = String.join "\n" lines 
+                position = case List.head ( List.reverse lines ) of
+                    Just last_line -> ( List.length lines -! 1 , String.length last_line )
                     Nothing -> (0,0)
-                    Just last_line ->
-                        ( List.length lines - 1
-                        , String.length last_line
-                        )
             in
-                Parse.string input input
-                == Ok ( position , [ input ] , "" )
+                Parse.string input input == Ok ( position , [ input ] , "" )
 
 
         it "passes some more random tests." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ str1 str2 ->
+            \ match input ->
+
             let
-                match = str1 :: String
-                input = str2 :: String
-
                 tail = String.dropLeft ( String.length match ) input
             in
                 if String.startsWith match input
-                then
-                    Parse.string match input
-                    == Ok ( consume match (0,0) , [ match ] , tail )
-                else
-                    Parse.string match input
-                    == Err [ ( (0,0) , errMsg match ) ]
+                then Parse.string match input == Ok ( consume match (0,0) , [ match ] , tail )
+                else Parse.string match input == Err [ ( (0,0) , errMsg match ) ]
 
 
     describe "Parse.optional" <| do
     ------------------------------------------------------------------
 
-
         it "really is optional." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 ) ->
+            \ ( match , input ) ->
+
             let
-                match = s1 :: String
-                input = s2 :: String
-                
                 tail = String.dropLeft ( String.length match )  input
             in
                 isEqual
@@ -134,17 +105,17 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
     describe "Parse.throwAway" <| do
     ------------------------------------------------------------------
 
-
         it "throws away the match." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ input ->
+            \ input ->
+
             List.all
                 ( \ n ->
                     let
                         match = String.left n input
                         tail  = String.dropLeft n input
-
                         empty = [] :: List String
                     in
                         isEqual 
@@ -157,76 +128,61 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
 
         it "is NOT optional." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 ) ->
+            \ ( match , input ) ->
+
             let
-                match = s1 :: String
-                input = s2 :: String
-
                 throwAway string =
-                    Parse.throwAway ( Parse.string string )
-                    :: Parser ( List String )
+                    Parse.throwAway ( Parse.string string ) :: Parser ( List String )
             in
                 String.startsWith match input
-                || isEqual
-                    ( throwAway match input )
-                    ( Err [ ( (0,0) , errMsg match ) ] )
+                || isEqual ( throwAway match input ) ( Err [ ( (0,0) , errMsg match ) ] )
 
 
     describe "Parse.zeroOrMore" <| do
     ------------------------------------------------------------------
 
-
         it "parses any number of times." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 , n ) ->
+            \ ( match , tail , count ) ->
+
             let
-                match = s1    :: String
-                tail  = s2    :: String
-                count = abs n :: Integer
-
                 repeat = String.repeat count match
                 result = List.repeat count match
             in
                 match == "" -- prevent infinite loop, see (*)
                 || String.startsWith match tail
                 || isEqual
-                    ( Parse.zeroOrMore
-                        ( Parse.string match )
-                        ( repeat ++ tail )
-                    )
-                    ( Ok ( consume repeat (0,0) , result , tail )
-                    )
+                    ( Parse.zeroOrMore ( Parse.string match ) ( repeat ++ tail ) )
+                    ( Ok ( consume repeat (0,0) , result , tail ) )
 
 
         it "is optional." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 ) ->
-            let
-                match = s1 :: String
-                input = s2 :: String
-            in
-                match == "" -- prevent infinite loop, see (*)
-                || case Parse.zeroOrMore ( Parse.string match ) input of
-                    Ok _ -> True
-                    Err _ -> False
+            \ ( match , input ) ->
+
+            match == "" -- prevent infinite loop, see (*)
+            || case Parse.zeroOrMore ( Parse.string match ) input of
+                Err _ -> False
+                Ok _ -> True
 
 
     describe "Parse.oneOrMore" <| do
     ------------------------------------------------------------------
 
-
         it "parses any positive number of times." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 , n ) ->
+            \ ( match , tail , n ) ->
+
             let
-                match = s1        :: String
-                tail  = s2        :: String
-                count = abs n + 1 :: Integer
-
+                count  = n + 1
                 repeat = String.repeat count match
                 result = List.repeat count match
             in
@@ -241,26 +197,21 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
                     )
             {-
                 (*) Greedily parsing any number of empty
-                    strings will of course result in an
-                    infinite loop.  I could catch that
-                    case in `oneOrMore` (recognizing
-                    `Parse.string ""` by applying it)
-                    and handle it separately, but I'm not
-                    sure about the performance penalty
-                    this would introduce.
+                    strings will of course result in an infinite loop.  I could catch that
+                    case in `oneOrMore` (recognizing `Parse.string ""` by applying it) and
+                    handle it separately, but I'm not sure about the performance penalty this
+                    would introduce.
             -}
 
 
         it "is NOT optional." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( s1 , s2 ) ->
-            let
-                match = s1 :: String
-                input = s2 :: String
-            in
-                String.startsWith match input
-                || isEqual
+            \ ( match , input ) ->
+
+            String.startsWith match input
+            || isEqual
                     ( Parse.oneOrMore ( Parse.string match ) input )
                     ( Err [ ( (0,0) , errMsg match ) ] )
 
@@ -268,17 +219,13 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
     describe "Parse.oneOf" <| do
     ------------------------------------------------------------------
 
-
         it "applies the first successful parser." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( l , r , m , t ) ->
+            \ ( left , right , match ,tail ) ->
+
             let
-                left  = l :: List String
-                right = r :: List String
-                match = m :: String
-                tail  = t :: String
-
                 input = match ++ tail
 
                 -- remove preceding matches
@@ -295,34 +242,31 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
 
         it "is NOT optional." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( ss , i ) ->
+            \ ( strings , input ) ->
+
             let
-                strings = ss :: List String
-                input   = i  :: String
-
                 filter string = not ( String.startsWith string input )
                 clean_strings = List.filter filter strings 
                 parsers       = map Parse.string clean_strings
             in
                 Parse.oneOf parsers input |> \ case
-                    Err _ -> True
                     Ok _ -> False
+                    Err _ -> True
 
 
     describe "Parse.sequence" <| do
     ------------------------------------------------------------------
 
-
         it "applies all parsers." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( ss , t ) ->
+            \ ( strings , tail ) ->
+
             let
-                strings = ss :: List String
-                tail    = t  :: String
-
-                parsers = map Parse.string ss
+                parsers = map Parse.string strings
                 input   = ( String.join "" strings ) ++ tail
                 allStrs = String.concat strings
             in
@@ -333,39 +277,35 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
 
         it "fails if one parser fails." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ ( l , r , f ) ->
+            \ ( left ,right , failing ) ->
+
             let
-                left    = l :: List String
-                right   = r :: List String
-                failing = f :: String
-
                 clean str   = not ( String.startsWith str failing )
                 clean_left  = List.filter clean left
                 clean_right = List.filter clean right
                 input       = String.join "" ( clean_left ++ clean_right )
 
-                parsers =
-                    map Parse.string
-                        ( clean_left ++ [ failing ] ++ clean_right )
+                parsers = map Parse.string ( clean_left ++ [ failing ] ++ clean_right )
             in
-                if f == "" then True -- `Parse.string ""` cannot fail.
+                if failing == "" then True -- `Parse.string ""` cannot fail.
                 else case Parse.sequence parsers input of
-                    Err _ -> True
                     Ok _ -> False
+                    Err _ -> True
 
 
     describe "Parse.map" <| do
     ------------------------------------------------------------------
 
-
         it "applies a function to parsing results." <|
         --------------------------------------------------------------
+            QuickCheck.property
 
-            QuickCheck.property <| \ i ->
+            \ input ->
+
             let
-                input = i :: String
-                even  = map String.length >> List.foldr (+) 0 >> modBy 2
+                even = map String.length >> List.foldr (+) 0 >> modBy 2
             in
                 isEqual
                     ( Parse.map even ( Parse.string input ) input )
@@ -377,7 +317,7 @@ tests = modifyMaxSuccess ( always 20000 ) <| do
 
 
 type Position
-    = ( Integer , Integer )
+    = ( Natural , Natural )
 
 
 errMsg :: String -> String

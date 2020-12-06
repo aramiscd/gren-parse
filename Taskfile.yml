@@ -9,17 +9,14 @@ tasks :
     build :
         cmds : [ " cabal v2-build " ]
 
-    run :
-        cmds : [ " cabal v2-run " ]
-
     test :
-        cmds : [ " cabal v2-test --test-log=/dev/stdout " ]
+        cmds : [ " cabal v2-run test " ]
 
     install :
         cmds : [ " cabal --overwrite-policy=always v2-install " ]
 
     clean :
-        cmds : [ " rm -rf dist-newstyle/build/x86_64-linux/ghc-8.6.5/ulme-parse-* " ]
+        cmds : [ " rm -rf dist-newstyle/build/*/*/ulme-parse-* " ]
 
     clean-all :
         cmds : [ " cabal v2-clean " ]

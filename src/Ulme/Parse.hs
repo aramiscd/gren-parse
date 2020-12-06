@@ -97,7 +97,7 @@ type Position
 
     The form is `( line , column )`, both 0-indexed.
 -}
-    = ( Integer , Integer )
+    = ( Natural , Natural )
 
 
 string :: String -> Parser ( List String )
@@ -113,19 +113,16 @@ string match input =
             , String.dropLeft ( String.length match ) input
             )
     else
-        Err
-            [ ( (0,0) , "Expecting `" ++ match ++ "`" )
-            ]
+        Err [ ( (0,0) , "Expecting `" ++ match ++ "`" ) ]
 
 
 optional :: Parser ( List a ) -> Parser ( List a )
 {-
     Optionally apply a parser.
 -}
-optional parse input =
-    case parse input of
-    Ok value -> Ok value
+optional parse input = case parse input of
     Err _error -> Ok ( (0,0) , [] , input )
+    Ok value -> Ok value
 
 
 throwAway :: Parser ( List a ) -> Parser ( List b )
@@ -134,16 +131,15 @@ throwAway :: Parser ( List a ) -> Parser ( List b )
 -}
 throwAway =
     map ( always [] ) >> \ parse input -> case parse input of
-    Ok ( pos , _done , pending ) -> Ok ( pos , [] , pending )
-    Err errs -> Err errs
+        Ok ( pos , _done , pending ) -> Ok ( pos , [] , pending )
+        Err errs -> Err errs
 
 
 succeed :: a -> Parser a
 {-
     Don't consume any input, just succeed unconditionally.
 
-    Useful as a `fold` kick-starter for the sequential
-    application of parsers.
+    Useful as a `fold` kick-starter for the sequential application of parsers.
 -}
 succeed value input =
     Ok ( (0,0) , value , input )
@@ -153,11 +149,9 @@ fail :: Parser a
 {-
     Don't consume any input, just fail unconditionally.
 
-    Useful as a `fold` kick-starter for trying out parsers
-    in parallel until one succeeds.
+    Useful as a `fold` kick-starter for trying out parsers in parallel until one succeeds.
 -}
-fail _input =
-    Err []
+fail _input = Err []
 
 
 zeroOrMore :: Parser ( List a ) -> Parser ( List a )
@@ -181,11 +175,9 @@ either :: Parser a -> Parser a -> Parser a
     Apply the first succeeding parser from two
     alternatives.
 -}
-either parse1 parse2 input =
-    case parse1 input of
+either parse1 parse2 input = case parse1 input of
     Ok value -> Ok value
-    Err errs1 ->
-        case parse2 input of
+    Err errs1 -> case parse2 input of
         Err errs2 -> Err ( errs1 ++ errs2 )
         Ok value -> Ok value
 
@@ -203,16 +195,17 @@ connect :: Parser ( List a ) -> Parser ( List a ) -> Parser ( List a )
 {-
     Apply two parsers one after the other.
 -}
-connect parser1 parser2 input =
-    case parser1 input of
+connect parser1 parser2 input = case parser1 input of
     Err errs -> Err errs
     Ok ( pos1 , done1 , pending1 ) ->
         case parser2 pending1 of
-        Ok ( pos2 , done2 , pending2 ) ->
-            Ok ( pos1 |> andMove pos2 , done1 ++ done2 , pending2 )
-        Err errs ->
-            let move pos = pos1 |> andMove pos
-            in Err ( List.map ( Tuple.mapFirst move ) errs )
+            Ok ( pos2 , done2 , pending2 ) ->
+                Ok ( pos1 |> andMove pos2 , done1 ++ done2 , pending2 )
+            Err errs ->
+                let
+                    move pos = pos1 |> andMove pos
+                in
+                    Err ( List.map ( Tuple.mapFirst move ) errs )
 
 
 sequence :: List ( Parser ( List a ) ) -> Parser ( List a )
@@ -227,21 +220,19 @@ map :: ( a -> b ) -> Parser a -> Parser b
 {-
     Map over the result of a successful parser.
 -}
-map fn parse input =
-    case parse input of
-    Err errs -> Err errs
+map fn parse input = case parse input of
     Ok ( pos , done , pending ) -> Ok ( pos , fn done , pending )
+    Err errs -> Err errs
 
 
 withError :: String -> Parser a -> Parser a
 {-
     Equip a parser with a custom error message.
 -}
-withError error parse input =
-    case parse input of
-    Ok value -> Ok value
-    Err [] -> Err [ ( (0,0) , error ) ]
+withError error parse input = case parse input of
     Err ( ( pos , _ ) : _ ) -> Err [ ( pos , error ) ]
+    Err [] -> Err [ ( (0,0) , error ) ]
+    Ok value -> Ok value
 
 
 
@@ -263,8 +254,7 @@ consume :: String -> Position -> Position
     Calculate how many lines and columns we move forward
     when parsing the given input string.
 -}
-consume input ( line , column ) =
-    case input of
+consume input ( line , column ) = case input of
     "" -> ( line , column )
     head : tail ->
         if head == '\n'
