@@ -59,11 +59,11 @@ module Ulme.Parse
 where
 
 
-import Ulme hiding ( map )
+import Ulme hiding ( map , sequence )
 
-import qualified Ulme.List      as List
-import qualified Ulme.String    as String
-import qualified Ulme.Tuple     as Tuple
+import Ulme.List      qualified as List
+import Ulme.String    qualified as String
+import Ulme.Tuple     qualified as Tuple
 
 
 type Parser a

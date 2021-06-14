@@ -3,12 +3,12 @@ module Main ( main ) where
     
 import Ulme
 
-import qualified Test.QuickCheck    as QuickCheck
-import qualified Ulme.List          as List
-import qualified Ulme.Parse         as Parse
-import qualified Ulme.String        as String
+import Test.QuickCheck    qualified as QuickCheck
+import Ulme.List          qualified as List
+import Ulme.Parse         qualified as Parse
+import Ulme.String        qualified as String
 
-import Test.Hspec               ( describe , hspec , it , parallel , shouldBe )
+import Test.Hspec               ( describe , hspec , it , parallel {-, shouldBe-} )
 import Test.Hspec.QuickCheck    ( modifyMaxSuccess )
 import Ulme.Parse               ( Parser )
 

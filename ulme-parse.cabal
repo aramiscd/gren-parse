@@ -1,7 +1,7 @@
 cabal-version           : 2.2
 
 name                    : ulme-parse
-version                 : 0.3.0
+version                 : 0.4.0
 synopsis                : parser combinator functions for combinatory parsing
 homepage                : https://git.sr.ht/~aramis/ulme-parse
 copyright               : (c) 2020 Aramís Concepción Durán
@@ -11,9 +11,7 @@ author                  : Aramís Concepción Durán <aramis@systemli.org>
 maintainer              : Aramís Concepción Durán <aramis@systemli.org>
 build-type              : Simple
 extra-source-files      : README.md
-
 description             : A simple parser-combinator package.
-
                           This work was part of my first attempt at non-trivial parsing.
                           It was motivated by this presentation: https://vimeo.com/171704565
 
@@ -29,41 +27,48 @@ common fields
                           -Wno-all-missed-specialisations
                           -Wno-missing-import-lists
                           -Wno-missing-local-signatures
+                          -Wno-missing-safe-haskell-mode
                           -Wno-monomorphism-restriction
                           -Wno-redundant-constraints
                           -Wno-safe
                           -Wno-type-defaults
                           -Wno-unsafe
-                        -- dev
-                          -Wno-unused-binds
-                          -Wno-unused-imports
+                      -- dev
+                         --Wno-unused-binds
+                         --Wno-unused-imports
+                         --Wno-unused-packages
 
-
-    default-extensions  : ApplicativeDo
+    default-extensions  : AllowAmbiguousTypes
+                          ApplicativeDo
                           BinaryLiterals
                           BlockArguments
+                          ConstraintKinds
+                          DeriveAnyClass
+                          DeriveGeneric
                           DuplicateRecordFields
                           ExplicitForAll
+                          ExtendedDefaultRules
+                          FlexibleContexts
+                          FlexibleInstances
                           GeneralisedNewtypeDeriving
                           HexFloatLiterals
+                          ImportQualifiedPost
                           LambdaCase
                           MultiParamTypeClasses
+                          NamedFieldPuns
                           NegativeLiterals
                           NoImplicitPrelude
                           NumDecimals
                           NumericUnderscores
                           OverloadedStrings
+                          PackageImports
                           RecordWildCards
                           RecursiveDo
                           ScopedTypeVariables
-                          StaticPointers
                           Strict
                           TupleSections
 
-    build-depends       : base == 4.13.*
-
-                      -- source repo packages
-                        , ulme
+    build-depends       : ulme
 
 
 library
@@ -71,16 +76,16 @@ library
     exposed-modules     : Ulme.Parse
 
 
-executable test
+executable tests
     import              : fields
     main-is             : Tests.hs
     other-modules       : Ulme.Parse
     type                : exitcode-stdio-1.0
 
-    build-depends       : hspec == 2.7.*
-                        , hspec-core == 2.7.*
-                        , QuickCheck == 2.14.*
-                        , quickcheck-instances == 0.3.*
+    build-depends       : hspec >= 2.7
+                        , hspec-core >= 2.7
+                        , QuickCheck >= 2.13
+                        , quickcheck-instances >= 0.3
 
 
 source-repository head
