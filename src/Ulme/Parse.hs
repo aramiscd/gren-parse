@@ -9,23 +9,11 @@ module Ulme.Parse
 
     Parser-combinators are surprisingly accessible.
 
-    First, we collect tokens as lists of strings using the
-    `string` function and some basic parsers.  From these
-    tokens we can construct other data using those same
-    combinators and the `map` function, perhaps discarding
-    tokens using the `throwAway` function.
-
-    For practical reasons most functions in this module
-    rely on lists.  We can, of course, parse into any
-    data type, but once we leave the (monadic) context of
-    a list, we lose the ability to assemble values from
-    multiple tokens and to pull apart or throw away values.
-
 
     ----
 
-    Copyright 2019-2020, Aramis Concepcion Duran
-    
+    Copyright 2019-2021, Aramis Concepcion Duran
+
     This file is part of ulme-parse.
 
     Ulme-parse is free software: you can redistribute it
@@ -45,218 +33,158 @@ module Ulme.Parse
     <https://www.gnu.org/licenses/>.
 -}
 
-( Parser
+( parse
 , string
-, optional
-, throwAway
-, zeroOrMore
-, oneOrMore
+, fail
+, succeed
+, eitherOr
 , oneOf
+, andThen
+, skip
+, optional
 , sequence
+, oneOrMore
+, zeroOrMore
 , map
-, withError
 )
 where
 
+import Ulme hiding ( andThen , map , sequence )
 
-import Ulme hiding ( map , sequence )
-
-import Ulme.List      qualified as List
-import Ulme.String    qualified as String
-import Ulme.Tuple     qualified as Tuple
-
-
-type Parser a
-{-
-    A `Parser a` attempts to turn a `String` into a
-    value of type `a`.
-
-    If it fails, it results in an `Err errs` where `errs`
-    is a list of `ParseError` values.  If it succeeds,
-    it results in an `Ok ( p , v , s )` where `p` is the
-    resulting cursor position, `v` is a value of type `a`
-    and `s` is the remaining input.
--}
-    = String -> Result ( List ParseError ) ( Position , a , String )
+import Data.Monoid ( mempty )
+import Ulme.List qualified as List
+import Ulme.String qualified as String
 
 
-type ParseError
-{-
-    A parse error type.
--}
-    = ( Position , String )
+type Parser a = String -> Parsed a
+data Parsed a = Fail | Parsed ( Partial a ) deriving Show
+data Partial a = Partial { value :: a , backlog :: String } deriving Show
 
 
-type Position
-{-
-    A type for cursor positions.
-
-    When parsing fails, I would like to know where exactly
-    it failed.  When parsing succeeds, we can discard
-    this information.
-
-    The form is `( line , column )`, both 0-indexed.
--}
-    = ( Natural , Natural )
+parse :: Parser a -> String -> Maybe a
+parse parser input =
+    case parser input of
+        Fail -> Nothing
+        Parsed partial ->
+            if backlog partial /= ""
+            then Nothing
+            else Just ( value partial )
 
 
-string :: String -> Parser ( List String )
-{-
-    Parse a `String`.
--}
+string :: String -> String -> Parsed String
 string match input =
-    if String.startsWith match input
-    then
-        Ok
-            ( consume match (0,0)
-            , [ match ]
-            , String.dropLeft ( String.length match ) input
-            )
-    else
-        Err [ ( (0,0) , "Expecting `" ++ match ++ "`" ) ]
-
-
-optional :: Parser ( List a ) -> Parser ( List a )
-{-
-    Optionally apply a parser.
--}
-optional parse input = case parse input of
-    Err _error -> Ok ( (0,0) , [] , input )
-    Ok value -> Ok value
-
-
-throwAway :: Parser ( List a ) -> Parser ( List b )
-{-
-    Apply a parser and throw away the result.
--}
-throwAway =
-    map ( always [] ) >> \ parse input -> case parse input of
-        Ok ( pos , _done , pending ) -> Ok ( pos , [] , pending )
-        Err errs -> Err errs
-
-
-succeed :: a -> Parser a
-{-
-    Don't consume any input, just succeed unconditionally.
-
-    Useful as a `fold` kick-starter for the sequential application of parsers.
--}
-succeed value input =
-    Ok ( (0,0) , value , input )
+    case String.uncons match of
+        Nothing ->
+            Parsed
+                ( Partial
+                    { value = match
+                    , backlog = input
+                    }
+                )
+        Just ( pHead , pTail ) ->
+            case String.uncons input of
+                Nothing -> Fail
+                Just ( sHead , sTail ) ->
+                    if pHead /= sHead
+                    then Fail
+                    else
+                        case string pTail sTail of
+                            Fail -> Fail
+                            Parsed partial ->
+                                Parsed
+                                    ( Partial
+                                        { value = String.cons pHead ( value partial )
+                                        , backlog = backlog partial
+                                        }
+                                    )
 
 
 fail :: Parser a
-{-
-    Don't consume any input, just fail unconditionally.
-
-    Useful as a `fold` kick-starter for trying out parsers in parallel until one succeeds.
--}
-fail _input = Err []
+fail input = Fail
 
 
-zeroOrMore :: Parser ( List a ) -> Parser ( List a )
-{-
-    Apply a parser as often as possible.
--}
-zeroOrMore parse =
-    optional ( oneOrMore parse )
+succeed :: a -> Parser a
+succeed value input =
+    Parsed ( Partial { value = value , backlog = input } )
 
 
-oneOrMore :: Parser ( List a ) -> Parser ( List a )
-{-
-    Apply a parser as often as possible but at least once.
--}
-oneOrMore parse =
-    sequence [ parse , optional ( oneOrMore parse ) ]
-
-
-either :: Parser a -> Parser a -> Parser a
-{-
-    Apply the first succeeding parser from two
-    alternatives.
--}
-either parse1 parse2 input = case parse1 input of
-    Ok value -> Ok value
-    Err errs1 -> case parse2 input of
-        Err errs2 -> Err ( errs1 ++ errs2 )
-        Ok value -> Ok value
+eitherOr :: Parser a -> Parser a -> Parser a
+eitherOr parserA parserB input =
+    case parserA input of
+        Fail -> parserB input
+        Parsed partial -> Parsed partial
 
 
 oneOf :: List ( Parser a ) -> Parser a
-{-
-    Apply the first succeeding parser from a list of
-    parsers.
--}
 oneOf parsers =
-    List.foldr either fail parsers
+    List.foldl eitherOr fail parsers
 
 
-connect :: Parser ( List a ) -> Parser ( List a ) -> Parser ( List a )
-{-
-    Apply two parsers one after the other.
--}
-connect parser1 parser2 input = case parser1 input of
-    Err errs -> Err errs
-    Ok ( pos1 , done1 , pending1 ) ->
-        case parser2 pending1 of
-            Ok ( pos2 , done2 , pending2 ) ->
-                Ok ( pos1 |> andMove pos2 , done1 ++ done2 , pending2 )
-            Err errs ->
-                let
-                    move pos = pos1 |> andMove pos
-                in
-                    Err ( List.map ( Tuple.mapFirst move ) errs )
+andThen :: Semigroup a => Parser a -> Parser a -> Parser a
+andThen parserB parserA input =
+    case parserA input of
+        Fail -> Fail
+        Parsed partialA ->
+            case parserB ( backlog partialA ) of
+                Fail -> Fail
+                Parsed partialB ->
+                    Parsed
+                        ( Partial
+                            { value = value partialA ++ value partialB
+                            , backlog = backlog partialB
+                            }
+                        )
 
 
-sequence :: List ( Parser ( List a ) ) -> Parser ( List a )
-{-
-    Apply a list of parsers, one after another.
--}
+skip :: Monoid a => Parser a -> Parser a
+skip parser input =
+    case parser input of
+        Fail -> Fail
+        Parsed partial ->
+           Parsed
+                ( Partial
+                    { value = mempty
+                    , backlog = backlog partial
+                    }
+                )
+
+
+optional :: Monoid a => Parser a -> Parser a
+optional parser input =
+    case parser input of
+        Parsed partial -> Parsed partial
+        Fail ->
+            Parsed
+                ( Partial
+                    { value = mempty
+                    , backlog = input
+                    }
+                )
+
+
+sequence :: Monoid a => List ( Parser a ) -> Parser a
 sequence parsers =
-    List.foldr connect ( succeed [] ) parsers
+    List.foldl andThen ( succeed mempty ) parsers
+
+
+oneOrMore :: Monoid a => Parser a -> Parser a
+oneOrMore parser =
+    sequence [ parser , optional ( oneOrMore parser ) ]
+
+
+zeroOrMore :: Monoid a => Parser a -> Parser a
+zeroOrMore parser =
+    optional ( oneOrMore parser )
 
 
 map :: ( a -> b ) -> Parser a -> Parser b
-{-
-    Map over the result of a successful parser.
--}
-map fn parse input = case parse input of
-    Ok ( pos , done , pending ) -> Ok ( pos , fn done , pending )
-    Err errs -> Err errs
-
-
-withError :: String -> Parser a -> Parser a
-{-
-    Equip a parser with a custom error message.
--}
-withError error parse input = case parse input of
-    Err ( ( pos , _ ) : _ ) -> Err [ ( pos , error ) ]
-    Err [] -> Err [ ( (0,0) , error ) ]
-    Ok value -> Ok value
-
-
-
--- Helpers
-
-
-andMove :: Position -> Position -> Position
-{-
-    Add two cursor positions.
--}
-andMove ( line2 , col2 ) ( line1 , col1 ) =
-    if line2 == 0
-    then ( line1 , col1 + col2 )
-    else ( line1 + line2 , col2 )
-
-
-consume :: String -> Position -> Position
-{-
-    Calculate how many lines and columns we move forward
-    when parsing the given input string.
--}
-consume input ( line , column ) = case input of
-    "" -> ( line , column )
-    head : tail ->
-        if head == '\n'
-        then consume tail ( line + 1 , 0 )
-        else consume tail ( line , column + 1 )
+map f parser input =
+    case parser input of
+        Fail -> Fail
+        Parsed partial ->
+            Parsed
+                ( Partial
+                    { value = f ( value partial )
+                    , backlog = backlog partial
+                    }
+                )

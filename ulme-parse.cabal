@@ -1,7 +1,7 @@
 cabal-version           : 2.2
 
 name                    : ulme-parse
-version                 : 0.4.0
+version                 : 0.5.0
 synopsis                : parser combinator functions for combinatory parsing
 homepage                : https://git.sr.ht/~aramis/ulme-parse
 copyright               : (c) 2020 Aramís Concepción Durán
@@ -25,6 +25,7 @@ common fields
     ghc-options         : -Werror
                           -Weverything
                           -Wno-all-missed-specialisations
+                          -Wno-missing-deriving-strategies
                           -Wno-missing-import-lists
                           -Wno-missing-local-signatures
                           -Wno-missing-safe-haskell-mode
@@ -34,9 +35,10 @@ common fields
                           -Wno-type-defaults
                           -Wno-unsafe
                       -- dev
-                         --Wno-unused-binds
-                         --Wno-unused-imports
-                         --Wno-unused-packages
+                          -Wno-unused-binds
+                          -Wno-unused-imports
+                          -Wno-unused-matches
+                          -Wno-unused-packages
 
     default-extensions  : AllowAmbiguousTypes
                           ApplicativeDo
@@ -68,7 +70,8 @@ common fields
                           Strict
                           TupleSections
 
-    build-depends       : ulme
+    build-depends       : base >= 4.14
+                        , ulme
 
 
 library
@@ -82,7 +85,8 @@ executable tests
     other-modules       : Ulme.Parse
     type                : exitcode-stdio-1.0
 
-    build-depends       : hspec >= 2.7
+    build-depends       : base >= 4.14
+                        , hspec >= 2.7
                         , hspec-core >= 2.7
                         , QuickCheck >= 2.13
                         , quickcheck-instances >= 0.3

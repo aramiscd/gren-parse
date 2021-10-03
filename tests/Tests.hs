@@ -1,343 +1,238 @@
 module Main ( main ) where
 
-    
 import Ulme
 
-import Test.QuickCheck    qualified as QuickCheck
-import Ulme.List          qualified as List
-import Ulme.Parse         qualified as Parse
-import Ulme.String        qualified as String
-
-import Test.Hspec               ( describe , hspec , it , parallel {-, shouldBe-} )
-import Test.Hspec.QuickCheck    ( modifyMaxSuccess )
-import Ulme.Parse               ( Parser )
-
+import Test.Hspec ( describe , hspec , it , parallel {-, shouldBe-} )
+import Test.Hspec.QuickCheck ( modifyMaxSuccess )
+import Test.QuickCheck qualified as QuickCheck
 import Test.QuickCheck.Instances.Natural ()
+import Ulme.List qualified as List
+import Ulme.Parse ( parse )
+import Ulme.Parse qualified as Parse
+import Ulme.String qualified as String
 
 
 main :: IO ()
 main = hspec ( parallel tests )
 
 
-tests = modifyMaxSuccess ( always 20000 ) <| do
+tests = modifyMaxSuccess ( always 9999 ) <| do
 
     describe "Parse.string" <| do
     ------------------------------------------------------------------
 
-        it "parses any matching string." <|
+        it "succeeds on matching strings" <|
         --------------------------------------------------------------
-            QuickCheck.property
+            QuickCheck.property \ input -> do
+                let parser = Parse.string input
+                parse parser input == Just input
 
-            \ input ->
-
-            List.all
-                ( \ n ->
-                    let
-                        match = String.left n input
-                        tail = String.dropLeft n input
-                    in
-                        Parse.string match input == Ok ( consume match (0,0) , [ match ] , tail )
-                )
-                ( List.range 0 ( String.length input )
-                )
-
-        it "refuses to parse any non-matching string." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ ( match , input ) ->
-
-            String.startsWith match input
-            || isEqual ( Parse.string match input ) ( Err [ ( (0,0) , errMsg match ) ] )
+        it "fails on non-matching strings" <|
+        -------------------------------------------------------------- 
+            QuickCheck.property \ match input -> do
+                match == input || do
+                    let parser = Parse.string match
+                    parse parser input == Nothing
 
 
-        it "handles newlines correctly." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ strings ->
-
-            let
-                lines = ( strings :: List String ) |> map ( String.filter ( /= '\n' ) ) 
-                input = String.join "\n" lines 
-                position = case List.head ( List.reverse lines ) of
-                    Just last_line -> ( List.length lines -! 1 , String.length last_line )
-                    Nothing -> (0,0)
-            in
-                Parse.string input input == Ok ( position , [ input ] , "" )
-
-
-        it "passes some more random tests." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ match input ->
-
-            let
-                tail = String.dropLeft ( String.length match ) input
-            in
-                if String.startsWith match input
-                then Parse.string match input == Ok ( consume match (0,0) , [ match ] , tail )
-                else Parse.string match input == Err [ ( (0,0) , errMsg match ) ]
-
-
-    describe "Parse.optional" <| do
+    describe "Parse.fail" <| do
     ------------------------------------------------------------------
 
-        it "really is optional." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ ( match , input ) ->
-
-            let
-                tail = String.dropLeft ( String.length match )  input
-            in
-                isEqual
-                    ( Parse.optional ( Parse.string match ) input
-                    )
-                    ( if String.startsWith match input
-                      then Ok ( consume match (0,0) , [ match ] , tail )
-                      else Ok ( (0,0) , [] , input )
-                    )
+        it "fails" <|
+        -------------------------------------------------------------- 
+            QuickCheck.property \ input -> do
+                parse Parse.fail input == Nothing
 
 
-    describe "Parse.throwAway" <| do
+    describe "Parse.succeed" <| do
     ------------------------------------------------------------------
 
-        it "throws away the match." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ input ->
-
-            List.all
-                ( \ n ->
-                    let
-                        match = String.left n input
-                        tail  = String.dropLeft n input
-                        empty = [] :: List String
-                    in
-                        isEqual 
-                            ( Parse.throwAway ( Parse.string match ) input )
-                            ( Ok ( consume match (0,0) , empty , tail ) )
-                )
-                ( List.range 0 ( String.length input )
-                )
+        it "succeeds" <|
+        -------------------------------------------------------------- 
+            QuickCheck.property \ value -> do
+                let parser = Parse.succeed value 
+                parse parser "" == Just value
 
 
-        it "is NOT optional." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ ( match , input ) ->
-
-            let
-                throwAway string =
-                    Parse.throwAway ( Parse.string string ) :: Parser ( List String )
-            in
-                String.startsWith match input
-                || isEqual ( throwAway match input ) ( Err [ ( (0,0) , errMsg match ) ] )
-
-
-    describe "Parse.zeroOrMore" <| do
+    describe "Parse.eitherOr" <| do
     ------------------------------------------------------------------
 
-        it "parses any number of times." <|
-        --------------------------------------------------------------
-            QuickCheck.property
+        it "succeeds if the first parser succeeds" <|
+        -------------------------------------------------------------- 
+            QuickCheck.property \ input -> do 
+                let parser = Parse.eitherOr ( Parse.string input ) Parse.fail 
+                parse parser input == Just input
 
-            \ ( match , tail , count ) ->
+        it "succeeds if the second parser succeeds" <|
+        -------------------------------------------------------------- 
+            QuickCheck.property \ input -> do 
+                let parser = Parse.eitherOr Parse.fail ( Parse.string input )
+                parse parser input == Just input
 
-            let
-                repeat = String.repeat count match
-                result = List.repeat count match
-            in
-                match == "" -- prevent infinite loop, see (*)
-                || String.startsWith match tail
-                || isEqual
-                    ( Parse.zeroOrMore ( Parse.string match ) ( repeat ++ tail ) )
-                    ( Ok ( consume repeat (0,0) , result , tail ) )
-
-
-        it "is optional." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ ( match , input ) ->
-
-            match == "" -- prevent infinite loop, see (*)
-            || case Parse.zeroOrMore ( Parse.string match ) input of
-                Err _ -> False
-                Ok _ -> True
-
-
-    describe "Parse.oneOrMore" <| do
-    ------------------------------------------------------------------
-
-        it "parses any positive number of times." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ ( match , tail , n ) ->
-
-            let
-                count  = n + 1
-                repeat = String.repeat count match
-                result = List.repeat count match
-            in
-                match == "" -- prevent infinite loop, see (*)
-                || String.startsWith match tail
-                || isEqual
-                    ( Parse.oneOrMore
-                        ( Parse.string match )
-                        ( String.repeat count match ++ tail )
-                    )
-                    ( Ok ( consume repeat (0,0) , result , tail )
-                    )
-            {-
-                (*) Greedily parsing any number of empty
-                    strings will of course result in an infinite loop.  I could catch that
-                    case in `oneOrMore` (recognizing `Parse.string ""` by applying it) and
-                    handle it separately, but I'm not sure about the performance penalty this
-                    would introduce.
-            -}
-
-
-        it "is NOT optional." <|
-        --------------------------------------------------------------
-            QuickCheck.property
-
-            \ ( match , input ) ->
-
-            String.startsWith match input
-            || isEqual
-                    ( Parse.oneOrMore ( Parse.string match ) input )
-                    ( Err [ ( (0,0) , errMsg match ) ] )
+        it "fails if both parsers fail" <|
+        -------------------------------------------------------------- 
+            QuickCheck.property \ input -> do 
+                let parser = Parse.eitherOr Parse.fail Parse.fail
+                parse parser input == Nothing
 
 
     describe "Parse.oneOf" <| do
     ------------------------------------------------------------------
 
-        it "applies the first successful parser." <|
+        it "applies the first successful parser" <|
         --------------------------------------------------------------
-            QuickCheck.property
+            QuickCheck.property \ left input right -> do
+                let filter = List.filter ( \ s -> not ( String.startsWith s input ) )
+                let parsers = map Parse.string ( filter left ++ [ input ] ++ filter right )
+                parse ( Parse.oneOf parsers ) input == Just input
 
-            \ ( left , right , match ,tail ) ->
-
-            let
-                input = match ++ tail
-
-                -- remove preceding matches
-                filter string = not ( String.startsWith string input )
-                filtered_left = List.filter filter left
-
-                strings = filtered_left ++ [ match ] ++ right
-                parsers = map Parse.string strings
-            in
-                isEqual
-                    ( Parse.oneOf parsers input )
-                    ( Ok ( consume match (0,0) , [ match ] , tail ) )
-
-
-        it "is NOT optional." <|
+        it "fails if no parser succeeds" <|
         --------------------------------------------------------------
-            QuickCheck.property
+            QuickCheck.property \ left input right -> do
+                let filter = List.filter ( \ s -> not ( String.startsWith s input ) )
+                let parsers = map Parse.string ( filter left ++ filter right )
+                parse ( Parse.oneOf parsers ) input == Nothing
 
-            \ ( strings , input ) ->
 
-            let
-                filter string = not ( String.startsWith string input )
-                clean_strings = List.filter filter strings 
-                parsers       = map Parse.string clean_strings
-            in
-                Parse.oneOf parsers input |> \ case
-                    Ok _ -> False
-                    Err _ -> True
+    describe "Parse.andThen" <| do
+    ------------------------------------------------------------------
+
+        it "succeeds when both parsers succeed" <|
+        --------------------------------------------------------------
+
+            QuickCheck.property \ matchA matchB -> do
+
+                let parserA = Parse.string matchA
+                let parserB = Parse.string matchB
+                let parserAB = parserA |> Parse.andThen parserB
+
+                (==)
+                    ( parse parserAB ( matchA ++ matchB ) )
+                    ( Just ( matchA ++ matchB ) )
+
+        it "fails when the first parser fails" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ matchA matchB noMatch -> do
+                let parserA = Parse.string matchA
+                let parserB = Parse.string matchB
+                let parserAB = parserA |> Parse.andThen parserB
+                let notMatchA = if noMatch == matchA then noMatch ++ " " else noMatch -- fail-safe
+                parse parserAB ( notMatchA ++ matchB ) == Nothing
+
+        it "fails when the second parser fails" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ matchA matchB noMatch -> do
+                let parserA = Parse.string matchA
+                let parserB = Parse.string matchB
+                let parserAB = parserA |> Parse.andThen parserB
+                let notMatchB = if noMatch == matchB then noMatch ++ " " else noMatch -- fail-safe
+                parse parserAB ( matchA ++ notMatchB ) == Nothing
+
+
+    describe "Parse.skip" <| do
+    ------------------------------------------------------------------
+
+        it "skips the match" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ match -> do
+                let parser = Parse.skip ( Parse.string match )
+                parse parser match == Just ""
+
+        it "fails without a match" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ match input -> do
+                match == input || do
+                    let parser = Parse.skip ( Parse.string match )
+                    parse parser input == Nothing
+
+
+    describe "Parse.optional" <| do
+    ------------------------------------------------------------------
+
+        it "succeeds with a succeeding parser" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ input -> do
+                let parser = Parse.optional ( Parse.string input )
+                parse ( Parse.optional parser ) input == Just input
+
+        it "succeeds with a failing parser" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ match -> do
+                match == "" || do
+                    let parser = Parse.optional ( Parse.string match )
+                    parse parser "" == Just ""
 
 
     describe "Parse.sequence" <| do
     ------------------------------------------------------------------
 
-        it "applies all parsers." <|
+        it "applies all parsers" <|
         --------------------------------------------------------------
-            QuickCheck.property
+            QuickCheck.property \ inputA inputB -> do
+                let parserA = Parse.string inputA
+                let parserB = Parse.string inputB
+                let parserAB = Parse.sequence [ parserA , parserB ]
+                parse parserAB ( inputA ++ inputB ) == Just ( inputA ++ inputB )
 
-            \ ( strings , tail ) ->
-
-            let
-                parsers = map Parse.string strings
-                input   = ( String.join "" strings ) ++ tail
-                allStrs = String.concat strings
-            in
-                isEqual
-                    ( Parse.sequence parsers input )
-                    ( Ok ( consume allStrs (0,0) , strings , tail ) )
-
-
-        it "fails if one parser fails." <|
+        it "fails if one parser fails" <|
         --------------------------------------------------------------
-            QuickCheck.property
+            QuickCheck.property \ left right -> do
+                let input = String.concat ( left ++ right )
+                let parseLeft = map Parse.string left
+                let parseRight = map Parse.string right
+                let parseLFR = List.concat [ parseLeft , List.singleton Parse.fail , parseRight ]
+                let parser = Parse.sequence parseLFR
+                parse parser input == Nothing
 
-            \ ( left ,right , failing ) ->
 
-            let
-                clean str   = not ( String.startsWith str failing )
-                clean_left  = List.filter clean left
-                clean_right = List.filter clean right
-                input       = String.join "" ( clean_left ++ clean_right )
+    describe "Parse.oneOrMore" <| do
+    ------------------------------------------------------------------
 
-                parsers = map Parse.string ( clean_left ++ [ failing ] ++ clean_right )
-            in
-                if failing == "" then True -- `Parse.string ""` cannot fail.
-                else case Parse.sequence parsers input of
-                    Ok _ -> False
-                    Err _ -> True
+        it "parses any positive number of times" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ input n -> do
+                input == "" || do
+                    let inputN = String.repeat ( n + 1 ) input
+                    let parser = Parse.oneOrMore ( Parse.string input )
+                    parse parser inputN == Just inputN
+
+        it "fails if there is no match" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ match input -> do
+                String.startsWith match input || do
+                    let parser = Parse.oneOrMore ( Parse.string match )
+                    parse parser input == Nothing
+
+
+    describe "Parse.zeroOrMore" <| do
+    ------------------------------------------------------------------
+
+        it "parses any number of times" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ input n -> do
+                input == "" || do
+                    let inputN = String.repeat n input
+                    let parser = Parse.zeroOrMore ( Parse.string input )
+                    parse parser inputN == Just inputN
 
 
     describe "Parse.map" <| do
     ------------------------------------------------------------------
 
-        it "applies a function to parsing results." <|
+        it "fails on a failing parser" <|
         --------------------------------------------------------------
-            QuickCheck.property
+            QuickCheck.property \ input -> do
+                let parser = Parse.map identity Parse.fail
+                parse parser input == Nothing
 
-            \ input ->
+        it "succeeds on a successful parser" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ input -> do
+                let parser = Parse.map identity ( Parse.string input )
+                parse parser input == Just input
 
-            let
-                even = map String.length >> List.foldr (+) 0 >> modBy 2
-            in
-                isEqual
-                    ( Parse.map even ( Parse.string input ) input )
-                    ( Ok ( consume input (0,0) , even [ input ] , "" ) )
-
-
-
--- Helpers
-
-
-type Position
-    = ( Natural , Natural )
-
-
-errMsg :: String -> String
-errMsg expected =
-    "Expecting `" ++ expected ++ "`"
-
-
-isEqual :: Eq a => a -> a -> Bool
-isEqual = (==)
-
-
-consume :: String -> Position -> Position
-{-
-    Calculate how many lines and columns we move forward
-    when parsing the given input string.
--}
-consume input ( line , column ) =
-    case input of
-    "" -> ( line , column )
-    head : tail ->
-        if head == '\n'
-        then consume tail ( line + 1 , 0 )
-        else consume tail ( line , column + 1 )
+        it "applies a function to the parsed value" <|
+        --------------------------------------------------------------
+            QuickCheck.property \ input -> do
+                let parser = Parse.map String.length ( Parse.string input )
+                parse parser input == Just ( String.length input )
