@@ -33,7 +33,8 @@ module Ulme.Parse
     <https://www.gnu.org/licenses/>.
 -}
 
-( parse
+( Parser
+, parse
 , string
 , fail
 , succeed
