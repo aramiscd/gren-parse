@@ -1,5 +1,3 @@
-module Ulme.Parse
-
 {-
     A simple parser-combinator module.
 
@@ -8,7 +6,6 @@ module Ulme.Parse
     https://vimeo.com/171704565
 
     Parser-combinators are surprisingly accessible.
-
 
     ----
 
@@ -33,33 +30,33 @@ module Ulme.Parse
     <https://www.gnu.org/licenses/>.
 -}
 
-( Parser
-, parse
-, string
-, fail
-, succeed
-, eitherOr
-, oneOf
-, andThen
-, skip
-, optional
-, sequence
-, oneOrMore
-, zeroOrMore
-, map
-)
-where
+module Ulme.Parse (
+    Parser,
+    parse,
+    string,
+    fail,
+    succeed,
+    eitherOr,
+    oneOf,
+    skip,
+    optional,
+    sequence,
+    oneOrMore,
+    zeroOrMore,
+    map,
+) where
 
-import Ulme hiding ( andThen , map , sequence )
+import Ulme hiding (map, sequence)
 
-import Data.Monoid ( mempty )
+import Data.Functor qualified as Functor
+import Data.Monoid (mempty)
 import Ulme.List qualified as List
 import Ulme.String qualified as String
 
 
 type Parser a = String -> Parsed a
-data Parsed a = Fail | Parsed ( Partial a ) deriving Show
-data Partial a = Partial { value :: a , backlog :: String } deriving Show
+data Parsed a = Fail | Parsed (Partial a) deriving (Show)
+data Partial a = Partial {value :: a, backlog :: String} deriving (Show)
 
 
 parse :: Parser a -> String -> Maybe a
@@ -68,33 +65,27 @@ parse parser input =
         Fail -> Nothing
         Parsed partial ->
             if backlog partial /= ""
-            then Nothing
-            else Just ( value partial )
+                then Nothing
+                else Just (value partial)
 
 
 string :: String -> String -> Parsed String
 string match input =
     case String.uncons match of
         Nothing ->
-            Parsed
-                ( Partial
-                    { value = match
-                    , backlog = input
-                    }
-                )
-        Just ( pHead , pTail ) ->
+            Parsed (Partial {value = match, backlog = input})
+        Just (pHead, pTail) ->
             case String.uncons input of
                 Nothing -> Fail
-                Just ( sHead , sTail ) ->
+                Just (sHead, sTail) ->
                     if pHead /= sHead
-                    then Fail
-                    else
-                        case string pTail sTail of
+                        then Fail
+                        else case string pTail sTail of
                             Fail -> Fail
                             Parsed partial ->
                                 Parsed
                                     ( Partial
-                                        { value = String.cons pHead ( value partial )
+                                        { value = String.cons pHead (value partial)
                                         , backlog = backlog partial
                                         }
                                     )
@@ -106,7 +97,7 @@ fail input = Fail
 
 succeed :: a -> Parser a
 succeed value input =
-    Parsed ( Partial { value = value , backlog = input } )
+    Parsed (Partial {value = value, backlog = input})
 
 
 eitherOr :: Parser a -> Parser a -> Parser a
@@ -116,17 +107,17 @@ eitherOr parserA parserB input =
         Parsed partial -> Parsed partial
 
 
-oneOf :: List ( Parser a ) -> Parser a
+oneOf :: List (Parser a) -> Parser a
 oneOf parsers =
     List.foldl eitherOr fail parsers
 
 
-andThen :: Semigroup a => Parser a -> Parser a -> Parser a
-andThen parserB parserA input =
+pair :: Semigroup a => Parser a -> Parser a -> Parser a
+pair parserB parserA input =
     case parserA input of
         Fail -> Fail
         Parsed partialA ->
-            case parserB ( backlog partialA ) of
+            case parserB (backlog partialA) of
                 Fail -> Fail
                 Parsed partialB ->
                     Parsed
@@ -142,50 +133,39 @@ skip parser input =
     case parser input of
         Fail -> Fail
         Parsed partial ->
-           Parsed
-                ( Partial
-                    { value = mempty
-                    , backlog = backlog partial
-                    }
-                )
+            Parsed (Partial {value = mempty, backlog = backlog partial})
 
 
 optional :: Monoid a => Parser a -> Parser a
 optional parser input =
     case parser input of
         Parsed partial -> Parsed partial
-        Fail ->
-            Parsed
-                ( Partial
-                    { value = mempty
-                    , backlog = input
-                    }
-                )
+        Fail -> Parsed (Partial {value = mempty, backlog = input})
 
 
-sequence :: Monoid a => List ( Parser a ) -> Parser a
+sequence :: Monoid a => List (Parser a) -> Parser a
 sequence parsers =
-    List.foldl andThen ( succeed mempty ) parsers
+    List.foldl pair (succeed mempty) parsers
 
 
 oneOrMore :: Monoid a => Parser a -> Parser a
 oneOrMore parser =
-    sequence [ parser , optional ( oneOrMore parser ) ]
+    sequence [parser, optional (oneOrMore parser)]
 
 
 zeroOrMore :: Monoid a => Parser a -> Parser a
 zeroOrMore parser =
-    optional ( oneOrMore parser )
+    optional (oneOrMore parser)
 
 
-map :: ( a -> b ) -> Parser a -> Parser b
+map :: (a -> b) -> Parser a -> Parser b
 map f parser input =
     case parser input of
         Fail -> Fail
         Parsed partial ->
             Parsed
                 ( Partial
-                    { value = f ( value partial )
+                    { value = f (value partial)
                     , backlog = backlog partial
                     }
                 )
