@@ -32,6 +32,8 @@
 
 module Ulme.Parse (
     Parser,
+    Parsed (Fail, Parsed),
+    Partial (Partial, value, backlog),
     parse,
     string,
     fail,
