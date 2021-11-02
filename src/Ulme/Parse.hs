@@ -30,23 +30,7 @@
     <https://www.gnu.org/licenses/>.
 -}
 
-module Ulme.Parse (
-    Parser,
-    Parsed (Fail, Parsed),
-    Partial (Partial, value, backlog),
-    parse,
-    string,
-    fail,
-    succeed,
-    eitherOr,
-    oneOf,
-    skip,
-    optional,
-    sequence,
-    oneOrMore,
-    zeroOrMore,
-    map,
-) where
+module Ulme.Parse where
 
 import Ulme hiding (map, sequence)
 
@@ -67,8 +51,8 @@ parse parser input =
         Fail -> Nothing
         Parsed partial ->
             if backlog partial /= ""
-                then Nothing
-                else Just (value partial)
+            then Nothing
+            else Just (value partial)
 
 
 string :: String -> String -> Parsed String
@@ -81,16 +65,16 @@ string match input =
                 Nothing -> Fail
                 Just (sHead, sTail) ->
                     if pHead /= sHead
-                        then Fail
-                        else case string pTail sTail of
-                            Fail -> Fail
-                            Parsed partial ->
-                                Parsed
-                                    ( Partial
-                                        { value = String.cons pHead (value partial)
-                                        , backlog = backlog partial
-                                        }
-                                    )
+                    then Fail
+                    else case string pTail sTail of
+                        Fail -> Fail
+                        Parsed partial ->
+                            Parsed
+                                ( Partial
+                                    { value = String.cons pHead (value partial)
+                                    , backlog = backlog partial
+                                    }
+                                )
 
 
 fail :: Parser a
@@ -111,23 +95,7 @@ eitherOr parserA parserB input =
 
 oneOf :: List (Parser a) -> Parser a
 oneOf parsers =
-    List.foldl eitherOr fail parsers
-
-
-pair :: Semigroup a => Parser a -> Parser a -> Parser a
-pair parserB parserA input =
-    case parserA input of
-        Fail -> Fail
-        Parsed partialA ->
-            case parserB (backlog partialA) of
-                Fail -> Fail
-                Parsed partialB ->
-                    Parsed
-                        ( Partial
-                            { value = value partialA ++ value partialB
-                            , backlog = backlog partialB
-                            }
-                        )
+    List.foldr eitherOr fail parsers
 
 
 skip :: Monoid a => Parser a -> Parser a
@@ -145,9 +113,25 @@ optional parser input =
         Fail -> Parsed (Partial {value = mempty, backlog = input})
 
 
+pair :: Semigroup a => Parser a -> Parser a -> Parser a
+pair parserA parserB input =
+    case parserA input of
+        Fail -> Fail
+        Parsed partialA ->
+            case parserB (backlog partialA) of
+                Fail -> Fail
+                Parsed partialB ->
+                    Parsed
+                        ( Partial
+                            { value = value partialA ++ value partialB
+                            , backlog = backlog partialB
+                            }
+                        )
+
+
 sequence :: Monoid a => List (Parser a) -> Parser a
 sequence parsers =
-    List.foldl pair (succeed mempty) parsers
+    List.foldr pair (succeed mempty) parsers
 
 
 oneOrMore :: Monoid a => Parser a -> Parser a

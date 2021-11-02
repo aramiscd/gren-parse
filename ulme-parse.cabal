@@ -1,7 +1,7 @@
 cabal-version           : 2.2
 
 name                    : ulme-parse
-version                 : 0.6.1
+version                 : 0.6.2
 synopsis                : parser combinator functions for combinatory parsing
 homepage                : https://git.sr.ht/~aramis/ulme-parse
 copyright               : (c) 2020 Aramís Concepción Durán
