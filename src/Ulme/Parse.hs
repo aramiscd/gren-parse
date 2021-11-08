@@ -30,7 +30,24 @@
     <https://www.gnu.org/licenses/>.
 -}
 
-module Ulme.Parse where
+module Ulme.Parse (
+    Parser,
+    Parsed (Fail, Parsed),
+    Partial (Partial, value, backlog),
+    parse,
+    string,
+    fail,
+    succeed,
+    eitherOr,
+    oneOf,
+    skip,
+    optional,
+    pair,
+    sequence,
+    oneOrMore,
+    zeroOrMore,
+    map,
+) where
 
 import Ulme hiding (map, sequence)
 
