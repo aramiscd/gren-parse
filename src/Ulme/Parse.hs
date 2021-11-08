@@ -51,7 +51,6 @@ module Ulme.Parse (
 
 import Ulme hiding (map, sequence)
 
-import Data.Functor qualified as Functor
 import Data.Monoid (mempty)
 import Ulme.List qualified as List
 import Ulme.String qualified as String
@@ -95,7 +94,7 @@ string match input =
 
 
 fail :: Parser a
-fail input = Fail
+fail _input = Fail
 
 
 succeed :: a -> Parser a

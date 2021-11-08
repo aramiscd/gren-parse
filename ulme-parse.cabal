@@ -35,10 +35,10 @@ common fields
                           -Wno-type-defaults
                           -Wno-unsafe
                       -- dev
-                          -Wno-unused-binds
-                          -Wno-unused-imports
-                          -Wno-unused-matches
-                          -Wno-unused-packages
+                         --Wno-unused-binds
+                         --Wno-unused-imports
+                         --Wno-unused-matches
+                         --Wno-unused-packages
 
     default-extensions  : AllowAmbiguousTypes
                           ApplicativeDo
