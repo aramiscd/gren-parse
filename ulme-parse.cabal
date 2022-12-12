@@ -1,7 +1,7 @@
 cabal-version           : 2.2
 
 name                    : ulme-parse
-version                 : 0.6.3
+version                 : 0.6.5
 synopsis                : parser combinator functions for combinatory parsing
 homepage                : https://git.sr.ht/~aramis/ulme-parse
 copyright               : (c) 2020 Aramís Concepción Durán
@@ -35,10 +35,13 @@ common fields
                           -Wno-type-defaults
                           -Wno-unsafe
                       -- dev
-                         --Wno-unused-binds
-                         --Wno-unused-imports
-                         --Wno-unused-matches
-                         --Wno-unused-packages
+                          -Wno-missing-export-lists
+                          -Wno-missing-exported-signatures
+                          -Wno-missing-signatures
+                          -Wno-unused-binds
+                          -Wno-unused-imports
+                          -Wno-unused-matches
+                          -Wno-unused-packages
 
     default-extensions  : AllowAmbiguousTypes
                           ApplicativeDo
@@ -83,7 +86,7 @@ executable tests
     import              : fields
     main-is             : Tests.hs
     other-modules       : Ulme.Parse
-    type                : exitcode-stdio-1.0
+ -- type                : exitcode-stdio-1.0
 
     build-depends       : base >= 4.14
                         , hspec >= 2.7

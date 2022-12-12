@@ -1,5 +1,5 @@
 #!/usr/bin/env fish
-git push
-git push --tags
-git push sr
-git push sr --tags
+git push git@git.eee.gg:aramis/ulme-parse
+git push git@git.eee.gg:aramis/ulme-parse --tags
+git push git@git.sr.ht:~aramis/ulme-parse
+git push git@git.sr.ht:~aramis/ulme-parse --tags
