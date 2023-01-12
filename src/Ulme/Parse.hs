@@ -204,7 +204,7 @@ sequence :: Monoid a => List ( Parser a ) -> Parser a
 sequence parsers = List.foldr pair ( succeed mempty ) parsers
 
 
-{-| Wende einen Parser einmal an und wiederhole dann so oft wie möglich.
+{-| Wende einen Parser mindestens einmal und so oft wie möglich an.
 
 >>> ( oneOrMore ( string "x" ) ) "xxxxa"
 Parsed ( Partial { value = "xxxx" , backlog = "a" } )
