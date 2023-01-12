@@ -1,13 +1,13 @@
 packages        : .
 
-with-compiler   : ghc-8.10.7
+with-compiler   : ghc-9.2.5
 
 source-repository-package
     type        : git
     location    : https://git.sr.ht/~aramis/ulme
-    tag         : v0.7.0
+    tag         : v0.8.0
 
 source-repository-package
     type        : git
     location    : https://git.sr.ht/~aramis/ulme-io
-    tag         : v0.7.1
+    tag         : v0.8.0

@@ -3,6 +3,7 @@ module Main ( main ) where
 import Ulme
 
 import Test.Hspec ( describe , hspec , it , parallel {-, shouldBe-} )
+import Test.Hspec.Core.Spec ( SpecM )
 import Test.Hspec.QuickCheck ( modifyMaxSuccess )
 import Test.QuickCheck qualified as QuickCheck
 import Test.QuickCheck.Instances.Natural ()
@@ -17,6 +18,7 @@ main :: IO ()
 main = tests |> modifyMaxSuccess ( always 9999 ) |> parallel |> hspec
 
 
+tests :: SpecM () ()
 tests = do
     describe "Parse.string" <| do
         it "succeeds on matching strings"

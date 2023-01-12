@@ -1,7 +1,7 @@
 cabal-version           : 2.2
 
 name                    : ulme-parse
-version                 : 0.6.5
+version                 : 0.7.0
 synopsis                : parser combinator functions for combinatory parsing
 homepage                : https://git.sr.ht/~aramis/ulme-parse
 copyright               : (c) 2020 Aramís Concepción Durán
@@ -18,6 +18,11 @@ description             : A simple parser-combinator package.
                           Parser-combinators are surprisingly accessible.
 
 
+flag dev
+    default             : False
+    manual              : True
+
+
 common fields
     default-language    : Haskell2010
     hs-source-dirs      : src tests
@@ -27,6 +32,7 @@ common fields
                           -Wno-all-missed-specialisations
                           -Wno-missing-deriving-strategies
                           -Wno-missing-import-lists
+                          -Wno-missing-kind-signatures
                           -Wno-missing-local-signatures
                           -Wno-missing-safe-haskell-mode
                           -Wno-monomorphism-restriction
@@ -34,8 +40,8 @@ common fields
                           -Wno-safe
                           -Wno-type-defaults
                           -Wno-unsafe
-                      -- dev
-                          -Wno-missing-export-lists
+    if flag(dev)
+        ghc-options     : -Wno-missing-export-lists
                           -Wno-missing-exported-signatures
                           -Wno-missing-signatures
                           -Wno-unused-binds
@@ -66,6 +72,7 @@ common fields
                           NumDecimals
                           NumericUnderscores
                           OverloadedStrings
+                          OverloadedRecordDot
                           PackageImports
                           RecordWildCards
                           RecursiveDo
@@ -73,7 +80,7 @@ common fields
                           Strict
                           TupleSections
 
-    build-depends       : base >= 4.14
+    build-depends       : base >= 4.16.4
                         , ulme
 
 
@@ -86,13 +93,12 @@ executable tests
     import              : fields
     main-is             : Tests.hs
     other-modules       : Ulme.Parse
- -- type                : exitcode-stdio-1.0
 
-    build-depends       : base >= 4.14
-                        , hspec >= 2.7
-                        , hspec-core >= 2.7
-                        , QuickCheck >= 2.13
-                        , quickcheck-instances >= 0.3
+    build-depends       : base >= 4.16.4
+                        , hspec >= 2.10.8
+                        , hspec-core >= 2.10.8
+                        , QuickCheck >= 2.14.2
+                        , quickcheck-instances >= 0.3.28
 
 
 source-repository head
