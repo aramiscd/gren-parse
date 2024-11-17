@@ -1,0 +1,201 @@
+module Parse exposing
+    ( Parser
+    , run
+    , string
+    , fail
+    , succeed
+    , eitherOr
+    , oneOf
+    , skip
+    , optional
+    , pair
+    , sequence
+    , oneOrMore
+    , zeroOrMore
+    , map
+    )
+
+
+-- Datentyp für Zwischenergebnisse beim Parsen
+--
+-- Gescheiterte Parser liefern `Nothing`.
+-- Erfolgreiche Parser liefern `Just { backlog, values }`.
+--
+type alias Result a =
+    Maybe
+        { backlog : String      -- noch nicht gelesene Eingabe
+        , values : Array a      -- Zwischenergebnisse
+        }
+
+
+-- Datentyp für Parser
+--
+type alias Parser a =
+    String -> Result a
+
+
+-- Wende einen Parser auf eine Eingabe an
+--
+-- Der Parser muss die Eingabe vollständig konsumieren und genau
+-- einen Wert erzeugen.
+--
+-- > run fooParser "foo"
+-- Just "foo"
+--
+-- > run fooParser "foox"
+-- Nothing
+--
+run : Parser a -> String -> Maybe a
+run parse input =
+    case parse input of
+        Just { backlog = "", values = [ value ] } -> Just value
+        _ -> Nothing
+
+
+-- Parser für Strings
+--
+-- > ( string "abc" ) "abcdef"
+-- Just { backlog = "def", values = [ "abc" ] }
+--
+string : String -> String -> Result String
+string match input =
+    if String.startsWith match input
+    then
+        Just
+            { backlog = String.dropLeft ( String.length match ) input
+            , values = [ match ]
+            }
+    else
+        Nothing
+
+
+-- Parser, der stets scheitert
+--
+fail : Parser a
+fail input = Nothing
+
+
+-- Parser, der stets erfolgreich ist und festgelegte Werte liefert
+--
+succeed : Array a -> Parser a
+succeed values input =
+    Just
+        { backlog = input
+        , values = values
+        }
+
+
+-- Probiere zwei Parser nacheinander aus
+--
+-- > ( eitherOr ( string "x" ) ( string "y" ) ) "yak"
+-- Just { backlog = "ak", values = [ "y" ] }
+--
+eitherOr : Parser a -> Parser a -> Parser a
+eitherOr parse1 parse2 input =
+    case parse1 input of
+        Just result -> Just result
+        Nothing -> parse2 input
+
+
+-- Probiere mehrere Parser nacheinander aus
+--
+-- > ( oneOf [ string "x", string "y", string "z" ] ) "yak"
+-- Just { backlog = "ak", values = [ "y" ] }
+--
+oneOf : Array ( Parser a ) -> Parser a
+oneOf parsers input =
+    Array.foldr eitherOr fail parsers input
+
+
+-- Wende einen Parser an und verwirf das Ergebnis
+--
+-- > ( skip ( string "abc" ) ) "abcdef"
+-- Just { backlog = "def", values = [] }
+--
+skip : Parser a -> Parser a
+skip parse input =
+    case parse input of
+        Just result -> Just { result | values = [] }
+        Nothing -> Nothing
+
+
+-- Wende einen Parser an wenn möglich
+--
+-- > ( optional ( string "x" ) ) "xyz"
+-- Just { backlog = "yz", values = [ "x" ] }
+--
+-- > ( optional ( string "x" ) ) "abc"
+-- Just { backlog = "abc", values = [] }
+--
+optional : Parser a -> Parser a
+optional parse input =
+    case parse input of
+        Just result -> Just result
+        Nothing -> Just { backlog = input, values = [] }
+
+
+-- Verkette zwei Parser
+--
+-- > ( pair ( string "x" ) ( string "y" ) ) "xyz"
+-- Just { backlog = "z", values = [ "x", "y" ] }
+--
+pair : Parser a -> Parser a -> Parser a
+pair parse1 parse2 input =
+    case parse1 input of
+        Nothing -> Nothing
+        Just result1 ->
+            case parse2 result1.backlog of
+                Nothing -> Nothing
+                Just result2 ->
+                    Just
+                        { backlog = result2.backlog
+                        , values = result1.values ++ result2.values
+                        }
+
+
+-- Verkette mehrere Parser
+-- 
+-- > ( sequence [ string "x", string "y", string "z" ] ) "xyz"
+-- Just { backlog = "", values = [ "x", "y", "z" ] }
+--
+sequence : Array ( Parser a ) -> Parser a
+sequence parsers input =
+    Array.foldr pair ( succeed [] ) parsers input
+
+
+-- Wende einen Parser mindestens einmal und so oft wie möglich an
+--
+-- > ( oneOrMore ( string "x" ) ) "xxxxa"
+-- Just { backlog = "a", values = [ "x", "x", "x", "x" ] }
+-- 
+-- > ( oneOrMore ( string "x" ) ) "aaaaa"
+-- Nothing
+--
+oneOrMore : Parser a -> Parser a
+oneOrMore parse input =
+    sequence [ parse, optional ( oneOrMore parse ) ] input
+
+
+-- Wende einen Parser so oft wie möglich an
+--
+-- > ( zeroOrMore ( string "x" ) ) "xxxxa"
+-- Just { backlog = "a", values = [ "x", "x", "x", "x" ] }
+--
+-- > ( zerorMore ( string "x" ) ) "aaaaa"
+-- Just { backlog = "aaaaa", values = [] }
+--
+zeroOrMore : Parser a -> Parser a
+zeroOrMore parse input =
+    optional ( oneOrMore parse ) input
+
+
+-- Transformiere die geparsten Werte
+-- 
+-- > ( Parse.map ( Array.map String.reverse ) ( string "abc" ) ) "abcdef"
+-- Just { backlog = "def", values = [ "cba" ] }
+--
+map : ( Array a -> Array b ) -> Parser a -> Parser b
+map f parse input =
+    case parse input of
+        Just result -> Just { backlog = result.backlog, values = f result.values }
+        Nothing -> Nothing
