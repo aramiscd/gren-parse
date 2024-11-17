@@ -1,10 +1,8 @@
 # gren-parse
 
-_Hinweis: Grens Standardbibliothek enthält
+(_Hinweis: Grens Standardbibliothek enthält
 ein eigenes Paket für die Parserkonstruktion:
-[gren-lang/parser](https://packages.gren-lang.org/package/gren-lang/parser)_
-
----
+[gren-lang/parser](https://packages.gren-lang.org/package/gren-lang/parser)_)
 
 Eine Bibliothek für [kombinatorisches
 Parsen](https://en.wikipedia.org/wiki/Parser_combinator)
