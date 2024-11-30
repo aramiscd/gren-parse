@@ -57,7 +57,7 @@ run parse input =
 -- > ( string "abc" ) "abcdef"
 -- Just { backlog = "def", values = [ "abc" ] }
 --
-string : String -> String -> Result String
+string : String -> Parser String
 string match input =
     if String.startsWith match input
     then
