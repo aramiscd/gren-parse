@@ -13,6 +13,7 @@ module Parse exposing
     , oneOrMore
     , zeroOrMore
     , map
+    , andThen
     )
 
 
@@ -22,16 +23,15 @@ module Parse exposing
 -- Erfolgreiche Parser liefern `Just { backlog, values }`.
 --
 type alias Result a =
-    Maybe
-        { backlog : String      -- noch nicht gelesene Eingabe
-        , values : Array a      -- Zwischenergebnisse
-        }
+    { backlog : String      -- noch nicht gelesene Eingabe
+    , values : Array a      -- Zwischenergebnisse
+    }
 
 
 -- Datentyp für Parser
 --
 type alias Parser a =
-    String -> Result a
+    String -> Maybe ( Result a )
 
 
 -- Wende einen Parser auf eine Eingabe an
@@ -197,5 +197,14 @@ zeroOrMore parse input =
 map : ( Array a -> Array b ) -> Parser a -> Parser b
 map f parse input =
     case parse input of
-        Just result -> Just { backlog = result.backlog, values = f result.values }
         Nothing -> Nothing
+        Just result -> Just { backlog = result.backlog, values = f result.values }
+
+
+-- Transformiere das Ergebnis eines Parsers
+--
+andThen : ( Result a -> Maybe ( Result b )) -> Parser a -> Parser b
+andThen f parse input =
+    case parse input of
+        Nothing -> Nothing
+        Just result -> f result
