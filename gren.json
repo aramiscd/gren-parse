@@ -4,7 +4,7 @@
     "name": "aramiscd/gren-parse",
     "summary": "Combinatory parsing in Gren",
     "license": "BSD-3-Clause",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "exposed-modules":
         [
             "Parse"

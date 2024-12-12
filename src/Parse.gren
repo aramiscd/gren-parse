@@ -216,7 +216,7 @@ Just { backlog = "def", values = [ "cba" ] }
 ```
 This can be used, for example, to change the target data type of a parser.
 ```
-> parse = Parse.string "true" |> Parse.map ( \ _ -> True )
+> parse = Parse.string "true" |> Parse.map ( \ _ -> [ True ] )
 > parse "true"
 > Just { backlog = "", values = [ True ] }
 ```
