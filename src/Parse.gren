@@ -238,9 +238,9 @@ For example, we can use it to limit `zeroOrMore` to three repetitions.
 > parse =
       Parse.zeroOrMore ( Parse.string "x" )
       |> Parse.andThen
-          ( \ r ->
-              if Array.length r.values > 3 then Nothing
-              else Just { backlog = r.backlog, values = r.values }
+          ( \ result ->
+              if Array.length result.values > 3 then Nothing
+              else Just result
           )
 ```
 ```
