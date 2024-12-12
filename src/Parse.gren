@@ -94,7 +94,7 @@ fail input = Nothing
 {-| Always succeed and produce a fixed list of values.
 ```
 > parse = Parse.succeed [ "x" ]
-> parse abc
+> parse "abc"
 Just ( backlog = "abc", values = [ "x" ] )
 ```
 -}
