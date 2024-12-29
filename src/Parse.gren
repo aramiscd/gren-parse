@@ -74,7 +74,7 @@ string match input =
     if String.startsWith match input
     then
         Just
-            { backlog = String.dropLeft ( String.length match ) input
+            { backlog = String.dropFirst ( String.count match ) input
             , values = [ match ]
             }
     else
@@ -115,7 +115,7 @@ Just { backlog = "def", values = [] }
 -}
 skip : Parser a -> Parser a
 skip parse input =
-    case parse input of
+    when parse input is
         Just result -> Just { result | values = [] }
         Nothing -> Nothing
 
@@ -135,7 +135,7 @@ Just { backlog = "abc", values = [] }
 -}
 optional : Parser a -> Parser a
 optional parse input =
-    case parse input of
+    when parse input is
         Just result -> Just result
         Nothing -> Just { backlog = input, values = [] }
 
@@ -223,7 +223,7 @@ This can be used, for example, to change the target data type of a parser.
 -}
 map : ( Array a -> Array b ) -> Parser a -> Parser b
 map f parse input =
-    case parse input of
+    when parse input is
         Nothing -> Nothing
         Just result -> Just { backlog = result.backlog, values = f result.values }
 
@@ -254,7 +254,7 @@ Nothing
 -}
 andThen : ( Result a -> Maybe ( Result b ) ) -> Parser a -> Parser b
 andThen f parse input =
-    case parse input of
+    when parse input is
         Nothing -> Nothing
         Just result -> f result
 
@@ -279,7 +279,7 @@ Nothing
 -}
 run : Parser a -> String -> Maybe a
 run parse input =
-    case parse input of
+    when parse input is
         Just { backlog = "", values = [ value ] } -> Just value
         _ -> Nothing
 
@@ -298,7 +298,7 @@ oneOf [ a, b ] == eitherOr a b
 -}
 eitherOr : Parser a -> Parser a -> Parser a
 eitherOr parse1 parse2 input =
-    case parse1 input of
+    when parse1 input is
         Just result -> Just result
         Nothing -> parse2 input
 
@@ -317,10 +317,10 @@ sequence [ a, b ] == pair a b
 -}
 pair : Parser a -> Parser a -> Parser a
 pair parse1 parse2 input =
-    case parse1 input of
+    when parse1 input is
         Nothing -> Nothing
         Just result1 ->
-            case parse2 result1.backlog of
+            when parse2 result1.backlog is
                 Nothing -> Nothing
                 Just result2 ->
                     Just
