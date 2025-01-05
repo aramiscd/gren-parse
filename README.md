@@ -2,7 +2,7 @@
 
 A small library with all the basic building blocks to create combinatory parsers.
 It is much simpler than [gren-lang/parser](https://packages.gren-lang.org/package/gren-lang/parser).
-Here is a parser for Booleans:
+Here is a parser for booleans:
 
 ```
 import Parse
@@ -29,4 +29,4 @@ Package documentation:
 
 See [aramiscd/gren-json](https://github.com/aramiscd/gren-json) for a JSON parser based on this.
 
-See [https://vimeo.com/171704565](https://vimeo.com/171704565) for an introduction into combinatory parsing.
+See [https://vimeo.com/171704565](https://vimeo.com/171704565) for an introduction to combinatory parsing.
