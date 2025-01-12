@@ -20,29 +20,95 @@ module Parse exposing
 
 {-| Combinatory parsing in Gren.
 
+---
+---
+
 ## Data types
 
-@docs Result, Parser
+---
+
+@docs Result
+
+---
+
+@docs Parser
+
+---
+---
 
 ## Basic parsers
 
-@docs string, fail, succeed
+---
+
+@docs string
+
+---
+
+@docs fail
+
+---
+
+@docs succeed
+
+---
+---
 
 ## Combinators
 
-@docs skip, optional, zeroOrMore, oneOrMore, oneOf, sequence
+---
+
+@docs skip
+
+---
+
+@docs optional
+
+---
+
+@docs zeroOrMore
+
+---
+
+@docs oneOrMore
+
+---
+
+@docs oneOf
+
+---
+
+@docs sequence
+
+---
+---
 
 ## Transformations
 
-@docs map, andThen
+---
+
+@docs map
+
+---
+
+@docs andThen
+
+---
+---
 
 ## Execution
 
+---
+
 @docs run
+
+---
+---
 
 ## Internals
 
 The following functions are only exported so that my test code can access them.
+
+---
 
 @docs eitherOr, pair
 
