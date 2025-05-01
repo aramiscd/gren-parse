@@ -116,8 +116,8 @@ The following functions are only exported so that my test code can access them.
 
 {-| Data type for intermediate results
 -}
-type alias Result dst =
-    { backlog : String      -- Input not yet read
+type alias Result src dst =
+    { backlog : src         -- Input not yet read
     , values : Array dst    -- intermediate results
     }
 
@@ -125,7 +125,7 @@ type alias Result dst =
 {-| Data type for parsers
 -}
 type alias Parser dst =
-    String -> Maybe ( Result dst )
+    String -> Maybe ( Result String dst )
 
 
 {-| Parse a fixed string.
@@ -318,7 +318,7 @@ Just { backlog = "", values = ["x", "x", "x"] }
 Nothing
 ```
 -}
-andThen : ( Result src -> Maybe ( Result dst ) ) -> Parser src -> Parser dst
+andThen : ( Result String src -> Maybe ( Result String dst ) ) -> Parser src -> Parser dst
 andThen f parse input =
     when parse input is
         Nothing -> Nothing
