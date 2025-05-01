@@ -1,0 +1,322 @@
+module Tests.ArrayParser.Parse exposing ( tests )
+
+import Array.Extra as Array
+import Expect
+import Fuzz
+import Test exposing ( test )
+
+import ArrayParser.Parse as Parse
+
+
+tests =
+    Test.concat
+        -------------------------------------------------------------------------------------------------------------
+-- list
+        -------------------------------------------------------------------------------------------------------------
+        [ Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.array: ist erfolgreich bei übereinstimmenden Sequenzen"
+            ( \ match ->
+                Parse.array match match
+                |> Expect.equal
+                    ( Just { backlog = [], values = match } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.array: scheitert wenn die zu parsende Sequenz kein Präfix der Eingabe ist"
+            ( \ match input ->
+                Parse.array match input
+                |> if Array.startsWith match input
+                    then ( \ _ -> Expect.pass )
+                    else Expect.equal Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- fail
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.fail: scheitert bei allen Eingaben (ArrayParser)"
+            ( \ input ->
+                Parse.fail input
+                |> Expect.equal
+                     Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- succeed
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.succeed: ist erfolgreich bei allen Eingaben (ArrayParser)"
+            ( \ match input ->
+                Parse.succeed match input
+                |> Expect.equal
+                    ( Just { backlog = input, values = match } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- skip
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.skip: verwirft den geparsten Wert (ArrayParser)"
+            ( \ match ->
+                Parse.skip ( Parse.array match ) match
+                |> Expect.equal
+                    ( Just { backlog = [], values = [] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.skip: scheitert wenn der innere Parser scheitert (ArrayParser)"
+            ( \ match input ->
+                Parse.skip ( Parse.array match ) input
+                |> if Array.startsWith match input
+                    then ( \ _ -> Expect.pass )
+                    else Expect.equal Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- optional
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.optional: ist erfolgreich wenn der innere Parser erfolgreich ist (ArrayParser)"
+            ( \ match ->
+                Parse.optional ( Parse.array match ) match
+                |> Expect.equal
+                    ( Just { backlog = [], values = match } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.optional: ist erfolgreich wenn der innere Parser scheitert (ArrayParser)"
+            ( \ match input ->
+                Parse.optional ( Parse.array match ) input
+                |> if Array.startsWith match input
+                    then ( \ _ -> Expect.pass )
+                    else Expect.equal ( Just { backlog = input, values = [] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- zeroOrMore
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.intRange 0 99 )
+            "Parse.zeroOrMore: wendet den inneren Parser möglichst oft an (ArrayParser)"
+            ( \ n ->
+                Parse.zeroOrMore ( Parse.array [ "a" ] )
+                    ( Array.repeat n "a" ++ [ "x" ] )
+                |> Expect.equal
+                    ( Just { backlog = [ "x" ], values = Array.repeat n "a" } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.zeroOrMore: ist erfolgreich wenn der innere Parser gleich am Anfang scheitert (ArrayParser)"
+            ( \ _ ->
+                Parse.zeroOrMore ( Parse.array [ "a" ] ) [ "x", "x", "x" ]
+                |> Expect.equal
+                    ( Just { backlog = [ "x", "x", "x" ], values = [] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- oneOrMore
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.intRange 1 99 )
+            "Parse.oneOrMore: wendet den inneren Parser möglichst oft an (ArrayParser)"
+            ( \ n ->
+                Parse.oneOrMore ( Parse.array [ "a" ] ) ( Array.repeat n "a" ++ [ "x" ] )
+                |> Expect.equal
+                    ( Just { backlog = [ "x" ], values = Array.repeat n "a" } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.oneOrMore: scheitert wenn der innere Parser gleich am Anfang scheitert (ArrayParser)"
+            ( \ _ ->
+                Parse.oneOrMore ( Parse.array [ "a" ] ) [ "x", "x", "x" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- eitherOr
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.eitherOr: ist erfolgreich wenn der erste Parser erfolgreich ist (ArrayParser)"
+            ( \ match ->
+                Parse.eitherOr ( Parse.array match ) Parse.fail match
+                |> Expect.equal
+                    ( Just { backlog = [], values = match } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.eitherOr: ist erfolgreich wenn der zweite Parser erfolgreich ist (ArrayParser)"
+            ( \ match ->
+                Parse.eitherOr Parse.fail ( Parse.array match ) match
+                |> Expect.equal
+                    ( Just { backlog = [], values = match } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.eitherOr: scheitert wenn beide Parser scheitern (ArrayParser)"
+            ( \ input ->
+                Parse.eitherOr Parse.fail Parse.fail input
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- oneOf
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.oneOf: wendet den ersten erfolgreichen Parser an (ArrayParser)"
+            ( \ _ ->
+                Parse.oneOf
+                    [ Parse.array [ "a" ]
+                    , Parse.array [ "b" ]
+                    , Parse.array [ "c" ]
+                    , Parse.array [ "d" ]
+                    , Parse.array [ "e" ]
+                    ]
+                    [ "c", "o", "l", "a" ]
+                |> Expect.equal
+                    ( Just { backlog = [ "o", "l", "a" ], values = [ "c" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.oneOf: scheitert wenn alle Parser scheitern (ArrayParser)"
+            ( \ _ ->
+                Parse.oneOf
+                    [ Parse.array [ "a" ]
+                    , Parse.array [ "b" ]
+                    , Parse.array [ "c" ]
+                    , Parse.array [ "d" ]
+                    , Parse.array [ "e" ]
+                    ]
+                    [ "f" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- pair
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.pair: wendet zwei Parser der Reihe nach an (ArrayParser)"
+            ( \ _ ->
+                Parse.pair
+                    ( Parse.array [ "a" ] )
+                    ( Parse.array [ "b" ] )
+                    [ "a", "b", "c", "d", "e", "f" ]
+                |> Expect.equal
+                    ( Just { backlog = [ "c", "d", "e", "f" ], values = [ "a", "b" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- sequence
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.sequence: wendet alle inneren Parser der Reihe nach an (ArrayParser)"
+            ( \ _ ->
+                Parse.sequence
+                    [ Parse.array [ "a" ]
+                    , Parse.array [ "b" ]
+                    , Parse.array [ "c" ]
+                    , Parse.array [ "d" ]
+                    , Parse.array [ "e" ]
+                    ]
+                    [ "a", "b", "c", "d", "e", "f" ]
+                |> Expect.equal
+                    ( Just { backlog = [ "f" ], values = [ "a", "b", "c", "d", "e" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.sequence: scheitert wenn ein innerer Parser scheitert (ArrayParser)"
+            ( \ _ ->
+                Parse.sequence
+                    [ Parse.array [ "a" ]
+                    , Parse.array [ "b" ]
+                    , Parse.array [ "c" ]
+                    , Parse.array [ "d" ]
+                    , Parse.array [ "e" ]
+                    ]
+                    [ "a", "b", "c", "X", "e", "f" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- map
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.map: scheitert wenn der innere Parser scheitert (ArrayParser)"
+            ( \ _ ->
+                Parse.map ( \ x -> x ) ( Parse.array [ "a" ] ) [ "x", "x", "x" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.map: ist erfolgreich wenn der innere Parser erfolgreich ist (ArrayParser)"
+            ( \ _ ->
+                Parse.map ( \ x -> x ) ( Parse.array [ "a" ] ) [ "a", "b", "c" ]
+                |> Expect.equal
+                    ( Just { backlog = [ "b", "c" ], values = [ "a" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.map: operiert auf dem geparsten Wert (ArrayParser)"
+            ( \ _ ->
+                Parse.map ( Array.map String.toUpper ) ( Parse.array [ "a" ] ) [ "a", "b", "c" ]
+                |> Expect.equal
+                    ( Just { backlog = [ "b", "c" ], values = [ "A" ] } )
+            )
+     -------------------------------------------------------------------------------------------------------------
+-- andThen
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.andThen: operiert auf dem ParseResult (ArrayParser)"
+            ( \ match ->
+                Parse.andThen
+                    ( \ r -> Just { backlog = r.backlog, values = [ 123 ] } )
+                    ( Parse.array match )
+                    match
+                |> Expect.equal
+                    ( Just { backlog = [], values = [ 123 ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.andThen: kann den Parser scheitern lassen (ArrayParser)"
+            ( \ match ->
+                Parse.andThen ( \ r -> Nothing ) ( Parse.array match ) match
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- run
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: ein Ergebnis, vollständig geparste Eingabe (ArrayParser)"
+            ( \ _ ->
+                Parse.run ( Parse.array [ "a" ] ) [ "a" ]
+                |> Expect.equal
+                    ( Just "a" )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: ein Ergebnis, unvollständig geparste Eingabe > akzeptiert (ArrayParser)"
+            ( \ _ ->
+                Parse.run ( Parse.array [ "a" ] ) [ "a", "b" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: mehrere Ergebnisse, unvollständig geparste Eingabe > abgelehnt (ArrayParser)"
+            ( \ _ ->
+                Parse.run ( Parse.sequence [ Parse.array [ "a" ], Parse.array [ "b" ] ] ) [ "a", "b", "c" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: mehrere Ergebnisse, vollständig geparste Eingabe > abgelehnt (ArrayParser)"
+            ( \ _ ->
+                Parse.run ( Parse.sequence [ Parse.array [ "a" ], Parse.array [ "b" ] ] ) [ "a", "b" ]
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: aggregiertes Ergebnis, vollständig geparste Eingabe > akzeptiert (ArrayParser)"
+            ( \ _ ->
+                Parse.sequence [ Parse.array [ "a" ], Parse.array [ "b" ] ]
+                |> Parse.map ( String.join "" >> Array.singleton )
+                |> \ parser -> Parse.run parser [ "a", "b" ]
+                |> Expect.equal
+                    ( Just "ab" )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        ]

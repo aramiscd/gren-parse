@@ -1,0 +1,321 @@
+module Tests.StringParser.Parse exposing ( tests )
+
+import Expect
+import Fuzz
+import Test exposing ( test )
+
+import StringParser.Parse as Parse
+
+
+tests =
+    Test.concat
+        -------------------------------------------------------------------------------------------------------------
+-- string
+        -------------------------------------------------------------------------------------------------------------
+        [ Test.fuzz Fuzz.string
+            "Parse.string: ist erfolgreich bei übereinstimmenden Strings"
+            ( \ match ->
+                Parse.string match match
+                |> Expect.equal
+                    ( Just { backlog = "", values = [ match ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 Fuzz.string Fuzz.string
+            "Parse.string: scheitert wenn der zu parsende String kein Präfix der Eingabe ist"
+            ( \ match input ->
+                Parse.string match input
+                |> if String.startsWith match input
+                    then ( \ _ -> Expect.pass )
+                    else Expect.equal Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- fail
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.fail: scheitert bei allen Eingaben"
+            ( \ input ->
+                Parse.fail input
+                |> Expect.equal
+                     Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- succeed
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 Fuzz.string Fuzz.string
+            "Parse.succeed: ist erfolgreich bei allen Eingaben"
+            ( \ match input ->
+                Parse.succeed [ match ] input
+                |> Expect.equal
+                    ( Just { backlog = input, values = [ match ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- skip
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.skip: verwirft den geparsten Wert"
+            ( \ match ->
+                Parse.skip ( Parse.string match ) match
+                |> Expect.equal
+                    ( Just { backlog = "", values = [] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 Fuzz.string Fuzz.string
+            "Parse.skip: scheitert wenn der innere Parser scheitert"
+            ( \ match input ->
+                Parse.skip ( Parse.string match ) input
+                |> if String.startsWith match input
+                    then ( \ _ -> Expect.pass )
+                    else Expect.equal Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- optional
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.optional: ist erfolgreich wenn der innere Parser erfolgreich ist"
+            ( \ match ->
+                Parse.optional ( Parse.string match ) match
+                |> Expect.equal
+                    ( Just { backlog = "", values = [ match ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz2 Fuzz.string Fuzz.string
+            "Parse.optional: ist erfolgreich wenn der innere Parser scheitert"
+            ( \ match input ->
+                Parse.optional ( Parse.string match ) input
+                |> if String.startsWith match input
+                    then ( \ _ -> Expect.pass )
+                    else Expect.equal ( Just { backlog = input, values = [] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- zeroOrMore
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.intRange 0 99 )
+            "Parse.zeroOrMore: wendet den inneren Parser möglichst oft an"
+            ( \ n ->
+                Parse.zeroOrMore ( Parse.string "a" )
+                    ( String.repeat n "a" ++ "x" )
+                |> Expect.equal
+                    ( Just { backlog = "x", values = Array.repeat n "a" } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.zeroOrMore: ist erfolgreich wenn der innere Parser gleich am Anfang scheitert"
+            ( \ _ ->
+                Parse.zeroOrMore ( Parse.string "a" ) "xxx"
+                |> Expect.equal
+                    ( Just { backlog = "xxx", values = [] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- oneOrMore
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz ( Fuzz.intRange 1 99 )
+            "Parse.oneOrMore: wendet den inneren Parser möglichst oft an"
+            ( \ n ->
+                Parse.oneOrMore ( Parse.string "a" ) ( String.repeat n "a" ++ "x" )
+                |> Expect.equal
+                    ( Just { backlog = "x", values = Array.repeat n "a" } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.oneOrMore: scheitert wenn der innere Parser gleich am Anfang scheitert"
+            ( \ _ ->
+                Parse.oneOrMore ( Parse.string "a" ) "xxx"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- eitherOr
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.eitherOr: ist erfolgreich wenn der erste Parser erfolgreich ist"
+            ( \ match ->
+                Parse.eitherOr ( Parse.string match ) Parse.fail match
+                |> Expect.equal
+                    ( Just { backlog = "", values = [ match ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.eitherOr: ist erfolgreich wenn der zweite Parser erfolgreich ist"
+            ( \ match ->
+                Parse.eitherOr Parse.fail ( Parse.string match ) match
+                |> Expect.equal
+                    ( Just { backlog = "", values = [ match ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.eitherOr: scheitert wenn beide Parser scheitern"
+            ( \ input ->
+                Parse.eitherOr Parse.fail Parse.fail input
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- oneOf
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.oneOf: wendet den ersten erfolgreichen Parser an"
+            ( \ _ ->
+                Parse.oneOf
+                    [ Parse.string "a"
+                    , Parse.string "b"
+                    , Parse.string "c"
+                    , Parse.string "d"
+                    , Parse.string "e"
+                    ]
+                    "cola"
+                |> Expect.equal
+                    ( Just { backlog = "ola", values = [ "c" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.oneOf: scheitert wenn alle Parser scheitern"
+            ( \ _ ->
+                Parse.oneOf
+                    [ Parse.string "a"
+                    , Parse.string "b"
+                    , Parse.string "c"
+                    , Parse.string "d"
+                    , Parse.string "e"
+                    ]
+                    "f"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- pair
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.pair: wendet zwei Parser der Reihe nach an"
+            ( \ _ ->
+                Parse.pair
+                    ( Parse.string "a" )
+                    ( Parse.string "b" )
+                    "abcdef"
+                |> Expect.equal
+                    ( Just { backlog = "cdef", values = [ "a", "b" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- sequence
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.sequence: wendet alle inneren Parser der Reihe nach an"
+            ( \ _ ->
+                Parse.sequence
+                    [ Parse.string "a"
+                    , Parse.string "b"
+                    , Parse.string "c"
+                    , Parse.string "d"
+                    , Parse.string "e"
+                    ]
+                    "abcdef"
+                |> Expect.equal
+                    ( Just { backlog = "f", values = [ "a", "b", "c", "d", "e" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.sequence: scheitert wenn ein innerer Parser scheitert"
+            ( \ _ ->
+                Parse.sequence
+                    [ Parse.string "a"
+                    , Parse.string "b"
+                    , Parse.string "c"
+                    , Parse.string "d"
+                    , Parse.string "e"
+                    ]
+                    "abcXef"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- map
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.map: scheitert wenn der innere Parser scheitert"
+            ( \ _ ->
+                Parse.map ( \ x -> x ) ( Parse.string "a" ) "xxx"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.map: ist erfolgreich wenn der innere Parser erfolgreich ist"
+            ( \ _ ->
+                Parse.map ( \ x -> x ) ( Parse.string "a" ) "abc"
+                |> Expect.equal
+                    ( Just { backlog = "bc", values = [ "a" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.map: operiert auf dem geparsten Wert"
+            ( \ _ ->
+                Parse.map ( Array.map String.toUpper ) ( Parse.string "a" ) "abc"
+                |> Expect.equal
+                    ( Just { backlog = "bc", values = [ "A" ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- andThen
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.andThen: operiert auf dem ParseResult"
+            ( \ match ->
+                Parse.andThen
+                    ( \ r -> Just { backlog = r.backlog, values = [ 123 ] } )
+                    ( Parse.string match )
+                    match
+                |> Expect.equal
+                    ( Just { backlog = "", values = [ 123 ] } )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , Test.fuzz Fuzz.string
+            "Parse.andThen: kann den Parser scheitern lassen"
+            ( \ match ->
+                Parse.andThen ( \ r -> Nothing ) ( Parse.string match ) match
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+-- run
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: ein Ergebnis, vollständig geparste Eingabe"
+            ( \ _ ->
+                Parse.run ( Parse.string "abc" ) "abc"
+                |> Expect.equal
+                    ( Just "abc" )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: ein Ergebnis, unvollständig geparste Eingabe > akzeptiert"
+            ( \ _ ->
+                Parse.run ( Parse.string "abc" ) "abcd"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: mehrere Ergebnisse, unvollständig geparste Eingabe > abgelehnt"
+            ( \ _ ->
+                Parse.run ( Parse.sequence [ Parse.string "a", Parse.string "b" ] ) "abcd"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: mehrere Ergebnisse, vollständig geparste Eingabe > abgelehnt"
+            ( \ _ ->
+                Parse.run ( Parse.sequence [ Parse.string "ab", Parse.string "cd" ] ) "abcd"
+                |> Expect.equal
+                    Nothing
+            )
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: aggregiertes Ergebnis, vollständig geparste Eingabe > akzeptiert"
+            ( \ _ ->
+                Parse.sequence [ Parse.string "ab", Parse.string "cd" ]
+                |> Parse.map ( String.join "" >> Array.singleton )
+                |> \ parser -> Parse.run parser "abcd"
+                |> Expect.equal
+                    ( Just "abcd" )
+            )
+        -------------------------------------------------------------------------------------------------------------
+        ]

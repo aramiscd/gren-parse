@@ -1,6 +1,6 @@
-module Parse exposing
-    ( Result
-    , Parser
+module StringParser.Parse exposing
+    ( Parser
+    , Result
     , string
     , fail
     , succeed
@@ -8,17 +8,17 @@ module Parse exposing
     , optional
     , zeroOrMore
     , oneOrMore
+    , eitherOr
     , oneOf
+    , pair
     , sequence
     , map
     , andThen
     , run
-    , eitherOr
-    , pair
     )
 
 
-{-| Combinatory parsing in Gren.
+{-| Parsing string input.
 
 ---
 ---
@@ -27,11 +27,11 @@ module Parse exposing
 
 ---
 
-@docs Result
+@docs Parser
 
 ---
 
-@docs Parser
+@docs Result
 
 ---
 ---
@@ -72,10 +72,17 @@ module Parse exposing
 @docs oneOrMore
 
 ---
+@docs eitherOr
+
+--
 
 @docs oneOf
 
 ---
+
+@docs pair
+
+--
 
 @docs sequence
 
@@ -101,31 +108,25 @@ module Parse exposing
 
 @docs run
 
----
----
-
-## Internals
-
-The following functions are only exported so that my test code can access them.
-
----
-
-@docs eitherOr, pair
-
 -}
 
-{-| Data type for intermediate results
+
+{-| A parser processes an input string.
+If it is successful, it produces a result.
+Otherwise, it produces `Nothing`.
+-}
+type alias Parser a =
+    String -> Maybe ( Result a )
+
+
+{-| If a parser has only processed part of its input, a `backlog` remains.
+This is the unprocessed part of the input.
+A `Result a` consists of this `backlog` and the sequence of produced `values` of type `a`.
 -}
 type alias Result a =
     { backlog : String      -- Input not yet read
     , values : Array a      -- intermediate results
     }
-
-
-{-| Data type for parsers
--}
-type alias Parser a =
-    String -> Maybe ( Result a )
 
 
 {-| Parse a fixed string.
@@ -149,7 +150,8 @@ string match input =
 
 {-| Always fail.
 ```
-> Parse.fail "abc"
+> parse = Parse.fail
+> parse "abc"
 Nothing
 ```
 -}
@@ -240,6 +242,25 @@ oneOrMore parse input =
     sequence [ parse, optional ( oneOrMore parse ) ] input
 
 
+{-| Use the first parser, or the second if the first fails.
+```
+> parse = Parse.eitherOr ( Parse.string "x" ) ( Parse.string "y" )
+> parse "yak"
+Just { backlog = "ak", values = [ "y" ] }
+```
+`oneOf` is defined as a fold over this function.
+Therefore:
+```
+oneOf [ a, b ] == eitherOr a b
+```
+-}
+eitherOr : Parser a -> Parser a -> Parser a
+eitherOr parse1 parse2 input =
+    when parse1 input is
+        Just result -> Just result
+        Nothing -> parse2 input
+
+
 {-| Apply the first successful parser from a list of parsers.
 ```
 > parse =
@@ -255,6 +276,32 @@ Just { backlog = "ak", values = [ "y" ] }
 oneOf : Array ( Parser a ) -> Parser a
 oneOf parsers input =
     Array.foldr eitherOr fail parsers input
+
+
+{-| Concatenate two parsers.
+```
+> parse = Parse.pair ( Parse.string "x" ) ( Parse.string "y" )
+> parse "xyz"
+Just { backlog = "z", values = [ "x", "y" ] }
+```
+`sequence` is defined as a fold over this function.
+Therefore:
+```
+sequence [ a, b ] == pair a b
+```
+-}
+pair : Parser a -> Parser a -> Parser a
+pair parse1 parse2 input =
+    when parse1 input is
+        Nothing -> Nothing
+        Just result1 ->
+            when parse2 result1.backlog is
+                Nothing -> Nothing
+                Just result2 ->
+                    Just
+                        { backlog = result2.backlog
+                        , values = result1.values ++ result2.values
+                        }
 
 
 {-| Apply several parsers in succession.
@@ -311,7 +358,7 @@ For example, we can use it to limit `zeroOrMore` to three repetitions.
 ```
 ```
 > parse "xxx"
-Just { backlog = "", values = ["x", "x", "x"] }
+Just { backlog = "", values = [ "x", "x", "x" ] }
 ```
 ```
 > parse "xxxx"
@@ -327,10 +374,10 @@ andThen f parse input =
 
 {-| Apply a parser and produce a final result.
 
-The `Result` data type carries an input backlog and a list of parsed values.
-This is necessary for combining parsers.
-But a finished parser should process the whole input and produce exactly one value.
-`run` ensures this and returns the result value if the parser was successful.
+`run` expects a parser to process its input completely (i.e. to leave an empty backlog),
+and to produce exactly one value.
+If successful, the produced value is returned.  Otherwise, nothing is returned.
+
 ```
 > parser = Parse.string "foo"
 ```
@@ -348,48 +395,3 @@ run parse input =
     when parse input is
         Just { backlog = "", values = [ value ] } -> Just value
         _ -> Nothing
-
-
-{-| Use the first parser, or the second if the first fails.
-```
-> parse = eitherOr ( string "x" ) ( string "y" )
-> parse "yak"
-Just { backlog = "ak", values = [ "y" ] }
-```
-`oneOf` is defined as a fold over this function.
-Therefore:
-```
-oneOf [ a, b ] == eitherOr a b
-```
--}
-eitherOr : Parser a -> Parser a -> Parser a
-eitherOr parse1 parse2 input =
-    when parse1 input is
-        Just result -> Just result
-        Nothing -> parse2 input
-
-
-{-| Concatenate two parsers.
-```
-> parse = pair ( string "x" ) ( string "y" )
-> parse "xyz"
-Just { backlog = "z", values = [ "x", "y" ] }
-```
-`sequence` is defined as a fold over this function.
-Therefore:
-```
-sequence [ a, b ] == pair a b
-```
--}
-pair : Parser a -> Parser a -> Parser a
-pair parse1 parse2 input =
-    when parse1 input is
-        Nothing -> Nothing
-        Just result1 ->
-            when parse2 result1.backlog is
-                Nothing -> Nothing
-                Just result2 ->
-                    Just
-                        { backlog = result2.backlog
-                        , values = result1.values ++ result2.values
-                        }

@@ -1,0 +1,6 @@
+module Array.Extra exposing ( startsWith )
+
+
+startsWith : Array a -> Array a -> Bool
+startsWith prefix array =
+    Array.takeFirst ( Array.length prefix ) array == prefix
