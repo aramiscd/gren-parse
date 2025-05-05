@@ -124,8 +124,8 @@ type alias Result src dst =
 
 {-| Data type for parsers
 -}
-type alias Parser dst =
-    String -> Maybe ( Result String dst )
+type alias Parser src dst =
+    String -> Maybe ( Result src dst )
 
 
 {-| Parse a fixed string.
@@ -135,7 +135,7 @@ type alias Parser dst =
 Just { backlog = "def", values = [ "abc" ] }
 ```
 -}
-string : String -> Parser String
+string : String -> Parser String String
 string match input =
     if String.startsWith match input
     then
@@ -153,7 +153,7 @@ string match input =
 Nothing
 ```
 -}
-fail : Parser dst
+fail : Parser String dst
 fail input = Nothing
 
 
@@ -164,7 +164,7 @@ fail input = Nothing
 Just ( backlog = "abc", values = [ "x" ] )
 ```
 -}
-succeed : Array dst -> Parser dst
+succeed : Array dst -> Parser String dst
 succeed values input =
     Just
         { backlog = input
@@ -179,7 +179,7 @@ succeed values input =
 Just { backlog = "def", values = [] }
 ```
 -}
-skip : Parser dst -> Parser dst
+skip : Parser String dst -> Parser String dst
 skip parse input =
     when parse input is
         Just result -> Just { result | values = [] }
@@ -199,7 +199,7 @@ Do not fail if the parser cannot be applied.
 Just { backlog = "abc", values = [] }
 ```
 -}
-optional : Parser dst -> Parser dst
+optional : Parser String dst -> Parser String dst
 optional parse input =
     when parse input is
         Just result -> Just result
@@ -218,7 +218,7 @@ Just { backlog = "a", values = [ "x", "x", "x", "x" ] }
 Just { backlog = "aaaaa", values = [] }
 ```
 -}
-zeroOrMore : Parser dst -> Parser dst
+zeroOrMore : Parser String dst -> Parser String dst
 zeroOrMore parse input =
     optional ( oneOrMore parse ) input
 
@@ -235,7 +235,7 @@ Just { backlog = "a", values = [ "x", "x", "x", "x" ] }
 Nothing
 ```
 -}
-oneOrMore : Parser dst -> Parser dst
+oneOrMore : Parser String dst -> Parser String dst
 oneOrMore parse input =
     sequence [ parse, optional ( oneOrMore parse ) ] input
 
@@ -252,7 +252,7 @@ oneOrMore parse input =
 Just { backlog = "ak", values = [ "y" ] }
 ```
 -}
-oneOf : Array ( Parser dst ) -> Parser dst
+oneOf : Array ( Parser String dst ) -> Parser String dst
 oneOf parsers input =
     Array.foldr eitherOr fail parsers input
 
@@ -269,7 +269,7 @@ oneOf parsers input =
 Just { backlog = "", values = [ "x", "y", "z" ] }
 ```
 -}
-sequence : Array ( Parser dst ) -> Parser dst
+sequence : Array ( Parser String dst ) -> Parser String dst
 sequence parsers input =
     Array.foldr pair ( succeed [] ) parsers input
 
@@ -287,7 +287,7 @@ This can be used, for example, to change the target data type of a parser.
 > Just { backlog = "", values = [ True ] }
 ```
 -}
-map : ( Array src -> Array dst ) -> Parser src -> Parser dst
+map : ( Array src -> Array dst ) -> Parser String src -> Parser String dst
 map f parse input =
     when parse input is
         Nothing -> Nothing
@@ -318,7 +318,7 @@ Just { backlog = "", values = ["x", "x", "x"] }
 Nothing
 ```
 -}
-andThen : ( Result String src -> Maybe ( Result String dst ) ) -> Parser src -> Parser dst
+andThen : ( Result String src -> Maybe ( Result String dst ) ) -> Parser String src -> Parser String dst
 andThen f parse input =
     when parse input is
         Nothing -> Nothing
@@ -343,7 +343,7 @@ Just "foo"
 Nothing
 ```
 -}
-run : Parser dst -> String -> Maybe dst
+run : Parser String dst -> String -> Maybe dst
 run parse input =
     when parse input is
         Just { backlog = "", values = [ value ] } -> Just value
@@ -362,7 +362,7 @@ Therefore:
 oneOf [ a, b ] == eitherOr a b
 ```
 -}
-eitherOr : Parser dst -> Parser dst -> Parser dst
+eitherOr : Parser String dst -> Parser String dst -> Parser String dst
 eitherOr parse1 parse2 input =
     when parse1 input is
         Just result -> Just result
@@ -381,7 +381,7 @@ Therefore:
 sequence [ a, b ] == pair a b
 ```
 -}
-pair : Parser dst -> Parser dst -> Parser dst
+pair : Parser String dst -> Parser String dst -> Parser String dst
 pair parse1 parse2 input =
     when parse1 input is
         Nothing -> Nothing
