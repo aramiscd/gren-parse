@@ -75,7 +75,7 @@ module ArrayParser.Parse exposing
 
 @docs eitherOr
 
---
+---
 
 @docs oneOf
 
@@ -83,7 +83,7 @@ module ArrayParser.Parse exposing
 
 @docs pair
 
---
+---
 
 @docs sequence
 
