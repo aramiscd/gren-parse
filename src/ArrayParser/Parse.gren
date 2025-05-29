@@ -277,7 +277,7 @@ eitherOr parse1 parse2 input =
 Just { backlog = [ "a", "k" ], values = [ "y" ] }
 ```
 -}
-oneOf : Array ( Parser String dst ) -> Parser String dst
+oneOf : Array ( Parser src dst ) -> Parser src dst
 oneOf parsers input =
     Array.foldr eitherOr fail parsers input
 
