@@ -1,11 +1,11 @@
-module Tests.ArrayParser.Parse exposing ( tests )
+module Tests.ArrayParser exposing ( tests )
 
 import Array.Extra as Array
 import Expect
 import Fuzz
 import Test exposing ( test )
 
-import ArrayParser.Parse as Parse
+import ArrayParser as Parse
 
 
 tests =

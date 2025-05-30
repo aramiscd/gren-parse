@@ -1,10 +1,10 @@
-module Tests.StringParser.Parse exposing ( tests )
+module Tests.StringParser exposing ( tests )
 
 import Expect
 import Fuzz
 import Test exposing ( test )
 
-import StringParser.Parse as Parse
+import StringParser as Parse
 
 
 tests =

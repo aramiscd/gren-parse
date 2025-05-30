@@ -3,15 +3,15 @@ module Main exposing ( main )
 import Test
 import Test.Runner.Node
 
-import Tests.StringParser.Parse as StringParser
-import Tests.ArrayParser.Parse as ArrayParser
+import Tests.StringParser
+import Tests.ArrayParser
 
 
 main =
     Test.Runner.Node.run
     <| Test.concat
-        [ ArrayParser.tests
-        , StringParser.tests
+        [ Tests.ArrayParser.tests
+        , Tests.StringParser.tests
         ]
 
 

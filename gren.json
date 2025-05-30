@@ -3,10 +3,10 @@
 , "name" : "aramiscd/gren-parse"
 , "summary" : "Combinatory parsing in Gren"
 , "license" : "BSD-3-Clause"
-, "version" : "1.4.2"
+, "version" : "1.4.3"
 , "exposed-modules" :
-    [ "ArrayParser.Parse"
-    , "StringParser.Parse"
+    [ "ArrayParser"
+    , "StringParser"
     ]
 , "gren-version" : "0.5.0 <= v < 0.6.0"
 , "dependencies" :
