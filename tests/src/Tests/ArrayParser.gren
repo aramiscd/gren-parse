@@ -125,32 +125,6 @@ tests =
                     Nothing
             )
         -------------------------------------------------------------------------------------------------------------
--- eitherOr
-        -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz ( Fuzz.array Fuzz.string )
-            "Parse.eitherOr: ist erfolgreich wenn der erste Parser erfolgreich ist (ArrayParser)"
-            ( \ match ->
-                Parse.eitherOr ( Parse.array match ) Parse.fail match
-                |> Expect.equal
-                    ( Just { backlog = [], values = match } )
-            )
-        -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz ( Fuzz.array Fuzz.string )
-            "Parse.eitherOr: ist erfolgreich wenn der zweite Parser erfolgreich ist (ArrayParser)"
-            ( \ match ->
-                Parse.eitherOr Parse.fail ( Parse.array match ) match
-                |> Expect.equal
-                    ( Just { backlog = [], values = match } )
-            )
-        -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz ( Fuzz.array Fuzz.string )
-            "Parse.eitherOr: scheitert wenn beide Parser scheitern (ArrayParser)"
-            ( \ input ->
-                Parse.eitherOr Parse.fail Parse.fail input
-                |> Expect.equal
-                    Nothing
-            )
-        -------------------------------------------------------------------------------------------------------------
 -- oneOf
         -------------------------------------------------------------------------------------------------------------
         , test
@@ -181,19 +155,6 @@ tests =
                     [ "f" ]
                 |> Expect.equal
                     Nothing
-            )
-        -------------------------------------------------------------------------------------------------------------
--- pair
-        -------------------------------------------------------------------------------------------------------------
-        , test
-            "Parse.pair: wendet zwei Parser der Reihe nach an (ArrayParser)"
-            ( \ _ ->
-                Parse.pair
-                    ( Parse.array [ "a" ] )
-                    ( Parse.array [ "b" ] )
-                    [ "a", "b", "c", "d", "e", "f" ]
-                |> Expect.equal
-                    ( Just { backlog = [ "c", "d", "e", "f" ], values = [ "a", "b" ] } )
             )
         -------------------------------------------------------------------------------------------------------------
 -- sequence

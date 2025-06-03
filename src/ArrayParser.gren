@@ -8,9 +8,7 @@ module ArrayParser exposing
     , optional
     , zeroOrMore
     , oneOrMore
-    , eitherOr
     , oneOf
-    , pair
     , sequence
     , map
     , andThen
@@ -18,7 +16,7 @@ module ArrayParser exposing
     )
 
 
-{-| Parsing of tokenized input.
+{-| Parsing of tokenized input
 
 ---
 ---
@@ -73,15 +71,7 @@ module ArrayParser exposing
 
 ---
 
-@docs eitherOr
-
----
-
 @docs oneOf
-
----
-
-@docs pair
 
 ---
 
@@ -246,25 +236,6 @@ oneOrMore parse input =
     sequence [ parse, optional ( oneOrMore parse ) ] input
 
 
-{-| Use the first parser, or the second if the first fails.
-```
-> parse = Parse.eitherOr ( Parse.array [ "x" ] ) ( Parse.array [ "y" ] )
-> parse [ "y", "a", "k" ]
-Just { backlog = [ "a", "k" ], values = [ "y" ] }
-```
-`oneOf` is defined as a fold over this function.
-Therefore:
-```
-oneOf [ a, b ] == eitherOr a b
-```
--}
-eitherOr : Parser src dst -> Parser src dst -> Parser src dst
-eitherOr parse1 parse2 input =
-    when parse1 input is
-        Just result -> Just result
-        Nothing -> parse2 input
-
-
 {-| Apply the first successful parser from a list of parsers.
 ```
 > parse =
@@ -279,33 +250,17 @@ Just { backlog = [ "a", "k" ], values = [ "y" ] }
 -}
 oneOf : Array ( Parser src dst ) -> Parser src dst
 oneOf parsers input =
-    Array.foldr eitherOr fail parsers input
+    oneOfHelper parsers { backlog = input, values = [] }
 
 
-{-| Concatenate two parsers.
-```
-> parse = Parse.pair ( Parse.array [ "x" ] ) ( Parse.array [ "y" ] )
-> parse [ "x", "y", "z" ]
-Just { backlog = [ "z" ], values = [ "x", "y" ] }
-```
-`sequence` is defined as a fold over this function.
-Therefore:
-```
-sequence [ a, b ] == pair a b
-```
--}
-pair : Parser src dst -> Parser src dst -> Parser src dst
-pair parse1 parse2 input =
-    when parse1 input is
+oneOfHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
+oneOfHelper parsers acc =
+    when Array.popFirst parsers is
         Nothing -> Nothing
-        Just result1 ->
-            when parse2 result1.backlog is
-                Nothing -> Nothing
-                Just result2 ->
-                    Just
-                        { backlog = result2.backlog
-                        , values = result1.values ++ result2.values
-                        }
+        Just { first, rest } ->
+            when first acc.backlog is
+                Nothing -> oneOfHelper rest acc
+                Just result -> Just result
 
 
 {-| Apply several parsers in succession.
@@ -322,7 +277,18 @@ Just { backlog = [], values = [ "x", "y", "z" ] }
 -}
 sequence : Array ( Parser src dst ) -> Parser src dst
 sequence parsers input =
-    Array.foldr pair ( succeed [] ) parsers input
+    sequenceHelper parsers { backlog = input, values = [] }
+
+
+sequenceHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
+sequenceHelper parsers acc =
+    when Array.popFirst parsers is
+        Nothing -> Just acc
+        Just { first, rest } ->
+            when first acc.backlog is
+                Nothing -> Nothing
+                Just { backlog, values } ->
+                    sequenceHelper rest { backlog = backlog, values = acc.values ++ values }
 
 
 {-| Transform the parsed values.
