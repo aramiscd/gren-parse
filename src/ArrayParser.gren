@@ -104,17 +104,13 @@ module ArrayParser exposing
 import Array.Extra as Array
 
 
-{-| A parser processes a sequence of `src` values.
-If it is successful, it produces a result.
-Otherwise, it produces `Nothing`.
+{-| Parser
 -}
 type alias Parser src dst =
     Array src -> Maybe ( Result src dst )
 
 
-{-| If a parser has only processed part of its input, a `backlog` remains.
-This is the unprocessed part of the input.
-A `Result src dst` consists of this `backlog` and the sequence of produced `values` of type `dst`.
+{-| Parse result
 -}
 type alias Result src dst =
     { backlog : Array src   -- Input not yet read
@@ -122,17 +118,12 @@ type alias Result src dst =
     }
 
 
-{-| Parse a fixed array.
-```
-> parse = Parse.array [ "a", "b", "c" ]
-> parse [ "a", "b", "c", "d", "e", "f" ]
-Just { backlog = [ "d", "e", "f" ], values = [ "a", "b", "c" ] }
-
-```
+{-| Parse a fixed array
 -}
 array : Array a -> Parser a a
 array match input =
-    if Array.startsWith match input
+    if
+        Array.startsWith match input
     then
         Just
             { backlog = Array.dropFirst ( Array.length match ) input
@@ -142,23 +133,13 @@ array match input =
         Nothing
 
 
-{-| Always fail.
-```
-> parse = Parse.fail
-> parse [ "a", "b", "c" ]
-Nothing
-```
+{-| Always fail
 -}
 fail : Parser src dst
 fail input = Nothing
 
 
-{-| Always succeed and produce a fixed list of values.
-```
-> parse = Parse.succeed [ "x" ]
-> parse [ "a", "b", "c" ]
-Just ( backlog = [ "a", "b", "c" ], values = [ "x" ] )
-```
+{-| Always succeed and produce a fixed list of values
 -}
 succeed : Array dst -> Parser src dst
 succeed values input =
@@ -168,89 +149,91 @@ succeed values input =
         }
 
 
-{-| Apply a parser and discard the result.
-```
-> parse = Parse.skip ( Parse.array [ "a", "b", "c" ] )
-> parse [ "a", "b", "c", "d", "e", "f" ]
-Just { backlog = [ "d", "e", "f" ], values = [] }
-```
+{-| Apply a parser and discard the result
 -}
 skip : Parser src dst -> Parser src dst
 skip parse input =
     when parse input is
-        Just result -> Just { result | values = [] }
         Nothing -> Nothing
+        Just result -> Just { result | values = [] }
 
 
-{-| Apply a parser if possible.
-```
-> parse = Parse.optional ( Parse.array [ "x" ] )
-> parse [ "x", "y", "z" ]
-Just { backlog = [ "y", "z" ], values = [ "x" ] }
-```
-Do not fail if the parser cannot be applied.
-```
-> parse = Parse.optional ( Parse.string [ "x" ] )
-> parse [ "a", "b", "c" ]
-Just { backlog = [ "a", "b", "c" ], values = [] }
-```
+{-| Apply a parser if possible
 -}
 optional : Parser src dst -> Parser src dst
 optional parse input =
     when parse input is
-        Just result -> Just result
         Nothing -> Just { backlog = input, values = [] }
+        Just result -> Just result
 
 
-{-| Apply a parser as often as possible.
-```
-> parse = Parse.zeroOrMore ( Parse.array [ "x" ] )
-> parse [ "x", "x", "x", "x", "a" ]
-Just { backlog = [ "a" ], values = [ "x", "x", "x", "x" ] }
-```
-```
-> parse = Parse.zerorMore ( Parse.array [ "x" ] )
-> parse [ "a", "a", "a", "a", "a" ]
-Just { backlog = [ "a", "a", "a", "a", "a" ], values = [] }
-```
+{-| Apply a parser as often as possible
 -}
 zeroOrMore : Parser src dst -> Parser src dst
 zeroOrMore parse input =
-    optional ( oneOrMore parse ) input
+    Just <| zeroOrMoreHelper parse { backlog = input, values = [] }
 
 
-{-| Apply a parser as often as possible, but at least once.
-```
-> parse = Parse.oneOrMore ( Parse.array [ "x" ] )
-> parse [ "x", "x", "x", "x", "a" ]
-Just { backlog = [ "a" ], values = [ "x", "x", "x", "x" ] }
-```
-```
-> parse = Parse.oneOrMore ( Parse.array [ "x" ] )
-> parse [ "a", "a", "a", "a", "a" ]
-Nothing
-```
+{-| Apply a parser as often as possible, but at least once
 -}
 oneOrMore : Parser src dst -> Parser src dst
 oneOrMore parse input =
-    sequence [ parse, optional ( oneOrMore parse ) ] input
+    when parse input is
+        Nothing -> Nothing
+        Just result -> Just <| zeroOrMoreHelper parse result
 
 
-{-| Apply the first successful parser from a list of parsers.
-```
-> parse =
-      Parse.oneOf
-          [ Parse.array [ "x" ]
-          , Parse.array [ "y" ]
-          , Parse.array [ "z" ]
-          ]
-> parse [ "y", "a", "k" ]
-Just { backlog = [ "a", "k" ], values = [ "y" ] }
-```
+{-| Apply the first successful parser from a list of parsers
 -}
 oneOf : Array ( Parser src dst ) -> Parser src dst
 oneOf parsers input =
     oneOfHelper parsers { backlog = input, values = [] }
+
+
+{-| Apply several parsers in succession
+-}
+sequence : Array ( Parser src dst ) -> Parser src dst
+sequence parsers input =
+    sequenceHelper parsers { backlog = input, values = [] }
+
+
+{-| Transform the parsed values
+-}
+map : ( Array dst1 -> Array dst2 ) -> Parser src dst1 -> Parser src dst2
+map f parse input =
+    when parse input is
+        Nothing -> Nothing
+        Just result -> Just { backlog = result.backlog, values = f result.values }
+
+
+{-| Transform the result of a parser
+-}
+andThen : ( Result src dst1 -> Maybe ( Result src dst2 ) ) -> Parser src dst1 -> Parser src dst2
+andThen f parse input =
+    when parse input is
+        Nothing -> Nothing
+        Just result -> f result
+
+
+{-| Apply a parser and produce a final result
+-}
+run : Parser src dst -> Array src -> Maybe dst
+run parse input =
+    when parse input is
+        Just { backlog = [], values = [ value ] } -> Just value
+        _ -> Nothing
+
+
+
+-- Internal
+
+
+zeroOrMoreHelper : Parser src dst -> Result src dst -> Result src dst
+zeroOrMoreHelper parse acc =
+    when parse acc.backlog is
+        Nothing -> acc
+        Just result ->
+            zeroOrMoreHelper parse { backlog = result.backlog, values = acc.values ++ result.values }
 
 
 oneOfHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
@@ -263,23 +246,6 @@ oneOfHelper parsers acc =
                 Just result -> Just result
 
 
-{-| Apply several parsers in succession.
-```
-> parse =
-      Parse.sequence
-          [ Parse.array [ "x" ]
-          , Parse.array [ "y" ]
-          , Parse.array [ "z" ]
-          ]
-> parse [ "x", "y", "z" ]
-Just { backlog = [], values = [ "x", "y", "z" ] }
-```
--}
-sequence : Array ( Parser src dst ) -> Parser src dst
-sequence parsers input =
-    sequenceHelper parsers { backlog = input, values = [] }
-
-
 sequenceHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
 sequenceHelper parsers acc =
     when Array.popFirst parsers is
@@ -289,79 +255,3 @@ sequenceHelper parsers acc =
                 Nothing -> Nothing
                 Just { backlog, values } ->
                     sequenceHelper rest { backlog = backlog, values = acc.values ++ values }
-
-
-{-| Transform the parsed values.
-```
-> parse = Parse.map ( Array.map Array.reverse ) ( Parse.array [ "a", "b", "c" ] )
-> parse [ "a", "b", "c", "d", "ef" ]
-Just { backlog = [ "d", "e", "f" ], values = [ "c", "b", "a" ] }
-```
-This can be used, for example, to change the target data type of a parser.
-```
-> parse = Parse.array [ "true" ] |> Parse.map ( \ _ -> [ True ] )
-> parse [ "true" ]
-> Just { backlog = [], values = [ True ] }
-```
--}
-map : ( Array dst1 -> Array dst2 ) -> Parser src dst1 -> Parser src dst2
-map f parse input =
-    when parse input is
-        Nothing -> Nothing
-        Just result -> Just { backlog = result.backlog, values = f result.values }
-
-
-{-| Transform the result of a parser.
-
-This can do everything that `map` can do.
-In addition, you can use it to decide whether a parser should fail based on the values it produces.
-
-For example, we can use it to limit `zeroOrMore` to three repetitions.
-```
-> parse =
-      Parse.zeroOrMore ( Parse.array [ "x" ] )
-      |> Parse.andThen
-          ( \ result ->
-              if Array.length result.values > 3 then Nothing
-              else Just result
-          )
-```
-```
-> parse [ "x", "x", "x" ]
-Just { backlog = [], values = [ "x", "x", "x" ] }
-```
-```
-> parse [ "x", "x", "x", "x" ]
-Nothing
-```
--}
-andThen : ( Result src dst1 -> Maybe ( Result src dst2 ) ) -> Parser src dst1 -> Parser src dst2
-andThen f parse input =
-    when parse input is
-        Nothing -> Nothing
-        Just result -> f result
-
-
-{-| Apply a parser and produce a final result.
-
-`run` expects a parser to process its input completely (i.e. to leave an empty backlog),
-and to produce exactly one value.
-If successful, the produced value is returned.  Otherwise, nothing is returned.
-
-```
-> parser = Parse.array [ "foo" ]
-```
-```
-> run parser [ "foo" ]
-Just "foo"
-```
-```
-> run parser [ "foo", "x" ]
-Nothing
-```
--}
-run : Parser src dst -> Array src -> Maybe dst
-run parse input =
-    when parse input is
-        Just { backlog = [], values = [ value ] } -> Just value
-        _ -> Nothing
