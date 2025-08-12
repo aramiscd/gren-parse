@@ -8,6 +8,7 @@ module ArrayParser exposing
     , optional
     , zeroOrMore
     , oneOrMore
+    , accumulate
     , oneOf
     , sequence
     , map
@@ -180,6 +181,15 @@ oneOrMore parse input =
         Just result -> Just ( accumulate parse result )
 
 
+{-| Accumulate parsed values from a parse backlog in a result structure
+-}
+accumulate : Parser src dst -> Result src dst -> Result src dst
+accumulate parse acc =
+    when parse acc.backlog is
+        Nothing -> acc
+        Just result -> accumulate parse { backlog = result.backlog, values = acc.values ++ result.values }
+
+
 {-| Apply the first successful parser from a list of parsers
 -}
 oneOf : Array ( Parser src dst ) -> Parser src dst
@@ -223,13 +233,6 @@ run parse input =
 
 
 -- Internal
-
-
-accumulate : Parser src dst -> Result src dst -> Result src dst
-accumulate parse acc =
-    when parse acc.backlog is
-        Nothing -> acc
-        Just result -> accumulate parse { backlog = result.backlog, values = acc.values ++ result.values }
 
 
 oneOfHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
