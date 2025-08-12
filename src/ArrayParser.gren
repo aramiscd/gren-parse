@@ -72,6 +72,10 @@ module ArrayParser exposing
 
 ---
 
+@docs accumulate
+
+---
+
 @docs oneOf
 
 ---

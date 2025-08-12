@@ -7,7 +7,6 @@ module StringParser exposing
     , skip
     , optional
     , zeroOrMore
-    , accumulate
     , oneOrMore
     , accumulate
     , oneOf
@@ -70,6 +69,10 @@ module StringParser exposing
 ---
 
 @docs oneOrMore
+
+---
+
+@docs accumulate
 
 ---
 
