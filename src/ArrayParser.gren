@@ -143,10 +143,7 @@ fail input = Nothing
 -}
 succeed : Array dst -> Parser src dst
 succeed values input =
-    Just
-        { backlog = input
-        , values = values
-        }
+    Just { backlog = input, values = values }
 
 
 {-| Apply a parser and discard the result
@@ -180,7 +177,7 @@ oneOrMore : Parser src dst -> Parser src dst
 oneOrMore parse input =
     when parse input is
         Nothing -> Nothing
-        Just result -> Just <| zeroOrMoreHelper parse result
+        Just result -> Just ( zeroOrMoreHelper parse result )
 
 
 {-| Apply the first successful parser from a list of parsers
@@ -232,8 +229,7 @@ zeroOrMoreHelper : Parser src dst -> Result src dst -> Result src dst
 zeroOrMoreHelper parse acc =
     when parse acc.backlog is
         Nothing -> acc
-        Just result ->
-            zeroOrMoreHelper parse { backlog = result.backlog, values = acc.values ++ result.values }
+        Just result -> zeroOrMoreHelper parse { backlog = result.backlog, values = acc.values ++ result.values }
 
 
 oneOfHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
@@ -253,5 +249,4 @@ sequenceHelper parsers acc =
         Just { first, rest } ->
             when first acc.backlog is
                 Nothing -> Nothing
-                Just { backlog, values } ->
-                    sequenceHelper rest { backlog = backlog, values = acc.values ++ values }
+                Just { backlog, values } -> sequenceHelper rest { backlog = backlog, values = acc.values ++ values }
