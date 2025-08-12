@@ -8,6 +8,7 @@ module StringParser exposing
     , optional
     , zeroOrMore
     , oneOrMore
+    , accumulate
     , oneOf
     , sequence
     , map
@@ -150,7 +151,7 @@ skip : Parser a -> Parser a
 skip parse input =
     when parse input is
         Nothing -> Nothing
-        Just result -> Just { result | values = [] }
+        Just result -> Just { backlog = result.backlog, values = [] }
 
 
 {-| Apply a parser if possible
@@ -166,7 +167,7 @@ optional parse input =
 -}
 zeroOrMore : Parser a -> Parser a
 zeroOrMore parse input =
-    Just <| zeroOrMoreHelper parse { backlog = input, values = [] }
+    Just ( accumulate parse { backlog = input, values = [] } )
 
 
 {-| Apply a parser as often as possible, but at least once
@@ -175,7 +176,7 @@ oneOrMore : Parser a -> Parser a
 oneOrMore parse input =
     when parse input is
         Nothing -> Nothing
-        Just result -> Just ( zeroOrMoreHelper parse result )
+        Just result -> Just ( accumulate parse result )
 
 
 {-| Apply the first successful parser from a list of parsers
@@ -223,11 +224,11 @@ run parse input =
 -- Internal
 
 
-zeroOrMoreHelper : Parser a -> Result a -> Result a
-zeroOrMoreHelper parse acc =
+accumulate : Parser a -> Result a -> Result a
+accumulate parse acc =
     when parse acc.backlog is
         Nothing -> acc
-        Just result -> zeroOrMoreHelper parse { backlog = result.backlog, values = acc.values ++ result.values }
+        Just result -> accumulate parse { backlog = result.backlog, values = acc.values ++ result.values }
 
 
 oneOfHelper : Array ( Parser a ) -> Result a -> Maybe ( Result a )

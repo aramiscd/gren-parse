@@ -152,7 +152,7 @@ skip : Parser src dst -> Parser src dst
 skip parse input =
     when parse input is
         Nothing -> Nothing
-        Just result -> Just { result | values = [] }
+        Just result -> Just { backlog = result.backlog, values = [] }
 
 
 {-| Apply a parser if possible
@@ -168,7 +168,7 @@ optional parse input =
 -}
 zeroOrMore : Parser src dst -> Parser src dst
 zeroOrMore parse input =
-    Just <| zeroOrMoreHelper parse { backlog = input, values = [] }
+    Just ( accumulate parse { backlog = input, values = [] } )
 
 
 {-| Apply a parser as often as possible, but at least once
@@ -177,7 +177,7 @@ oneOrMore : Parser src dst -> Parser src dst
 oneOrMore parse input =
     when parse input is
         Nothing -> Nothing
-        Just result -> Just ( zeroOrMoreHelper parse result )
+        Just result -> Just ( accumulate parse result )
 
 
 {-| Apply the first successful parser from a list of parsers
@@ -225,11 +225,11 @@ run parse input =
 -- Internal
 
 
-zeroOrMoreHelper : Parser src dst -> Result src dst -> Result src dst
-zeroOrMoreHelper parse acc =
+accumulate : Parser src dst -> Result src dst -> Result src dst
+accumulate parse acc =
     when parse acc.backlog is
         Nothing -> acc
-        Just result -> zeroOrMoreHelper parse { backlog = result.backlog, values = acc.values ++ result.values }
+        Just result -> accumulate parse { backlog = result.backlog, values = acc.values ++ result.values }
 
 
 oneOfHelper : Array ( Parser src dst ) -> Result src dst -> Maybe ( Result src dst )
