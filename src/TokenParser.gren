@@ -1,7 +1,7 @@
-module ArrayParser exposing
+module TokenParser exposing
     ( Parser
     , Result
-    , array
+    , values
     , fail
     , succeed
     , skip
@@ -39,7 +39,7 @@ module ArrayParser exposing
 
 ---
 
-@docs array
+@docs values
 
 ---
 
@@ -123,10 +123,10 @@ type alias Result src dst =
     }
 
 
-{-| Parse a fixed array
+{-| Parse a fixed sequence of values
 -}
-array : Array a -> Parser a a
-array match input =
+values : Array a -> Parser a a
+values match input =
     if
         Array.startsWith match input
     then
@@ -147,8 +147,8 @@ fail input = Nothing
 {-| Always succeed and produce a fixed list of values
 -}
 succeed : Array dst -> Parser src dst
-succeed values input =
-    Just { backlog = input, values = values }
+succeed vals input =
+    Just { backlog = input, values = vals }
 
 
 {-| Apply a parser and discard the result
@@ -256,4 +256,5 @@ sequenceHelper parsers acc =
         Just { first, rest } ->
             when first acc.backlog is
                 Nothing -> Nothing
-                Just { backlog, values } -> sequenceHelper rest { backlog = backlog, values = acc.values ++ values }
+                Just { backlog, values = vals } ->
+                    sequenceHelper rest { backlog = backlog, values = acc.values ++ vals }

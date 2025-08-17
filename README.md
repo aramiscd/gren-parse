@@ -9,7 +9,7 @@ Here is a parser for booleans
 
 
 ```
-import StringParser as Parse
+import SimpleParser as Parse
 
 parseBool =
     Parse.oneOf
@@ -31,16 +31,16 @@ Nothing
 
 ## Usage
 
-Use `StringParser` to construct parsers that operate directly on `String` input.
+Use `SimpleParser` to construct parsers that operate directly on `String` input.
 
 Advanced parsers first break down their input into a sequence of tokens.
 This is called tokenization.
-You can use `StringParser` for this tokenization step.
-Then use `ArrayParser` to further process the tokenized input.
+You can use `SimpleParser` for this tokenization step.
+Then use `TokenParser` to further process the tokenized input.
 
 Don't worry about tokenization if you're not sure you need it.
 Being able to omit tokenization is a great advantage in combinatory parsing.
-So start with `StringParser` if you are new to parser construction.
+So start with `SimpleParser` if you are new to parser construction.
 This will get you a long way.
 I have written a complete and correct but somewhat inefficient JSON parser this way.
 Sooner or later you will probably realize by yourself that you have to tokenize for certain parsing challenges.

@@ -4,7 +4,7 @@
     [ "src"
     , "../src"
     ]
-, "gren-version" : "0.6.1"
+, "gren-version" : "0.6.2"
 , "dependencies" :
     { "direct" :
         { "gren-lang/core" : "7.0.0"

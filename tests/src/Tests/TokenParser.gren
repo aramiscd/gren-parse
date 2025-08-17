@@ -1,41 +1,42 @@
-module Tests.StringParser exposing ( tests )
+module Tests.TokenParser exposing ( tests )
 
+import Array.Extra as Array
 import Expect
 import Fuzz
 import Test exposing ( test )
 
-import StringParser as Parse
+import TokenParser as Parse
 
 
 tests =
     Test.concat
         -------------------------------------------------------------------------------------------------------------
--- string
+-- list
         -------------------------------------------------------------------------------------------------------------
-        [ Test.fuzz Fuzz.string
-            "Parse.string: ist erfolgreich bei übereinstimmenden Strings"
+        [ Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.values: ist erfolgreich bei übereinstimmenden Sequenzen"
             <| \ match ->
                 let
-                    actual = Parse.string match match
-                    expected = Just { backlog = "", values = [ match ] }
+                    actual = Parse.values match match
+                    expected = Just { backlog = [], values = match }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz2 Fuzz.string Fuzz.string
-            "Parse.string: scheitert wenn der zu parsende String kein Präfix der Eingabe ist"
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.values: scheitert wenn die zu parsende Sequenz kein Präfix der Eingabe ist"
             <| \ match input ->
-                if String.startsWith match input then Expect.pass
+                if Array.startsWith match input then Expect.pass
                 else
                     let
-                        actual = Parse.string match input
+                        actual = Parse.values match input
                         expected = Nothing
                     in
                         Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
 -- fail
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz Fuzz.string
-            "Parse.fail: scheitert bei allen Eingaben"
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.fail: scheitert bei allen Eingaben (TokenParser)"
             <| \ input ->
                 let
                     actual = Parse.fail input
@@ -45,55 +46,55 @@ tests =
         -------------------------------------------------------------------------------------------------------------
 -- succeed
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz2 Fuzz.string Fuzz.string
-            "Parse.succeed: ist erfolgreich bei allen Eingaben"
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.succeed: ist erfolgreich bei allen Eingaben (TokenParser)"
             <| \ match input ->
                 let
-                    actual = Parse.succeed [ match ] input
-                    expected = Just { backlog = input, values = [ match ] }
+                    actual = Parse.succeed match input
+                    expected = Just { backlog = input, values = match }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
 -- skip
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz Fuzz.string
-            "Parse.skip: verwirft den geparsten Wert"
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.skip: verwirft den geparsten Wert (TokenParser)"
             <| \ match ->
                 let
-                    actual = Parse.skip ( Parse.string match ) match
-                    expected = Just { backlog = "", values = [] }
+                    actual = Parse.skip ( Parse.values match ) match
+                    expected = Just { backlog = [], values = [] }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz2 Fuzz.string Fuzz.string
-            "Parse.skip: scheitert wenn der innere Parser scheitert"
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.skip: scheitert wenn der innere Parser scheitert (TokenParser)"
             <| \ match input ->
-                if String.startsWith match input then Expect.pass
+                if Array.startsWith match input then Expect.pass
                 else
                     let
-                        actual = Parse.skip ( Parse.string match ) input
+                        actual = Parse.skip ( Parse.values match ) input
                         expected = Nothing
                     in
                         Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
 -- optional
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz Fuzz.string
-            "Parse.optional: ist erfolgreich wenn der innere Parser erfolgreich ist"
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.optional: ist erfolgreich wenn der innere Parser erfolgreich ist (TokenParser)"
             <| \ match ->
                 let
-                    actual = Parse.optional ( Parse.string match ) match
-                    expected = Just { backlog = "", values = [ match ] }
+                    actual = Parse.optional ( Parse.values match ) match
+                    expected = Just { backlog = [], values = match }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz2 Fuzz.string Fuzz.string
-            "Parse.optional: ist erfolgreich wenn der innere Parser scheitert"
+        , Test.fuzz2 ( Fuzz.array Fuzz.string ) ( Fuzz.array Fuzz.string )
+            "Parse.optional: ist erfolgreich wenn der innere Parser scheitert (TokenParser)"
             <| \ match input ->
-                if String.startsWith match input then Expect.pass
+                if Array.startsWith match input then Expect.pass
                 else
                     let
-                        actual = Parse.optional ( Parse.string match ) input
+                        actual = Parse.optional ( Parse.values match ) input
                         expected = Just { backlog = input, values = [] }
                     in
                         Expect.equal expected actual
@@ -101,39 +102,39 @@ tests =
 -- zeroOrMore
         -------------------------------------------------------------------------------------------------------------
         , Test.fuzz ( Fuzz.intRange 0 99 )
-            "Parse.zeroOrMore: wendet den inneren Parser möglichst oft an"
+            "Parse.zeroOrMore: wendet den inneren Parser möglichst oft an (TokenParser)"
             <| \ n ->
                 let
-                    actual = Parse.zeroOrMore ( Parse.string "a" ) ( String.repeat n "a" ++ "x" )
-                    expected = Just { backlog = "x", values = Array.repeat n "a" }
+                    actual = Parse.zeroOrMore ( Parse.values [ "a" ] ) ( Array.repeat n "a" ++ [ "x" ] )
+                    expected = Just { backlog = [ "x" ], values = Array.repeat n "a" }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.zeroOrMore: ist erfolgreich wenn der innere Parser gleich am Anfang scheitert"
+            "Parse.zeroOrMore: ist erfolgreich wenn der innere Parser gleich am Anfang scheitert (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.zeroOrMore ( Parse.string "a" ) "xxx"
-                    expected = Just { backlog = "xxx", values = [] }
+                    actual = Parse.zeroOrMore ( Parse.values [ "a" ] ) [ "x", "x", "x" ]
+                    expected = Just { backlog = [ "x", "x", "x" ], values = [] }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
 -- oneOrMore
         -------------------------------------------------------------------------------------------------------------
         , Test.fuzz ( Fuzz.intRange 1 99 )
-            "Parse.oneOrMore: wendet den inneren Parser möglichst oft an"
+            "Parse.oneOrMore: wendet den inneren Parser möglichst oft an (TokenParser)"
             <| \ n ->
                 let
-                    actual = Parse.oneOrMore ( Parse.string "a" ) ( String.repeat n "a" ++ "x" )
-                    expected = Just { backlog = "x", values = Array.repeat n "a" }
+                    actual = Parse.oneOrMore ( Parse.values [ "a" ] ) ( Array.repeat n "a" ++ [ "x" ] )
+                    expected = Just { backlog = [ "x" ], values = Array.repeat n "a" }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.oneOrMore: scheitert wenn der innere Parser gleich am Anfang scheitert"
+            "Parse.oneOrMore: scheitert wenn der innere Parser gleich am Anfang scheitert (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.oneOrMore ( Parse.string "a" ) "xxx"
+                    actual = Parse.oneOrMore ( Parse.values [ "a" ] ) [ "x", "x", "x" ]
                     expected = Nothing
                 in
                     Expect.equal expected actual
@@ -141,43 +142,43 @@ tests =
 -- oneOf
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.oneOf: wendet den ersten erfolgreichen Parser an"
+            "Parse.oneOf: wendet den ersten erfolgreichen Parser an (TokenParser)"
             <| \ _ ->
                 let
                     parse =
                         Parse.oneOf
-                            [ Parse.string "a"
-                            , Parse.string "b"
-                            , Parse.string "c"
-                            , Parse.string "d"
-                            , Parse.string "e"
+                            [ Parse.values [ "a" ]
+                            , Parse.values [ "b" ]
+                            , Parse.values [ "c" ]
+                            , Parse.values [ "d" ]
+                            , Parse.values [ "e" ]
                             ]
 
-                    actual = parse "cola"
-                    expected = Just { backlog = "ola", values = [ "c" ] }
+                    actual = parse [ "c", "o", "l", "a" ]
+                    expected = Just { backlog = [ "o", "l", "a" ], values = [ "c" ] }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.oneOf: scheitert wenn alle Parser scheitern"
+            "Parse.oneOf: scheitert wenn alle Parser scheitern (TokenParser)"
             <| \ _ ->
                 let
-                    parse = 
+                    parse =
                         Parse.oneOf
-                            [ Parse.string "a"
-                            , Parse.string "b"
-                            , Parse.string "c"
-                            , Parse.string "d"
-                            , Parse.string "e"
+                            [ Parse.values [ "a" ]
+                            , Parse.values [ "b" ]
+                            , Parse.values [ "c" ]
+                            , Parse.values [ "d" ]
+                            , Parse.values [ "e" ]
                             ]
-
-                    actual = parse "f"
+                    
+                    actual = parse [ "f" ]
                     expected = Nothing
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.oneOf: lässt den Call Stack nicht überlaufen"
+            "Parse.oneOf: lässt den Call Stack nicht überlaufen (TokenParser)"
             -- Hinweis: Ich habe den Unterschied geprüft.
             -- Wenn ich oneOf ohne oneOfHelper als Faltung über eitherOr ausdrücke,
             -- dann läuft schon für für n = 9999 der Call Stack über.
@@ -185,8 +186,8 @@ tests =
                 let
                     n = 9999
                     value = "x"
-                    parse = Parse.oneOf ( Array.repeat n ( Parse.string value ) )
-                    input = "y"
+                    parse = Parse.oneOf ( Array.repeat n ( Parse.values [ value ] ) )
+                    input = [ "y" ]
 
                     actual = parse input
                     expected = Nothing
@@ -196,43 +197,43 @@ tests =
 -- sequence
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.sequence: wendet alle inneren Parser der Reihe nach an"
-            <| \ _ ->
-                let
-                    parse = 
-                        Parse.sequence
-                            [ Parse.string "a"
-                            , Parse.string "b"
-                            , Parse.string "c"
-                            , Parse.string "d"
-                            , Parse.string "e"
-                            ]
-
-                    actual = parse "abcdef"
-                    expected = Just { backlog = "f", values = [ "a", "b", "c", "d", "e" ] }
-                in
-                    Expect.equal expected actual
-        -------------------------------------------------------------------------------------------------------------
-        , test
-            "Parse.sequence: scheitert wenn ein innerer Parser scheitert"
+            "Parse.sequence: wendet alle inneren Parser der Reihe nach an (TokenParser)"
             <| \ _ ->
                 let
                     parse =
                         Parse.sequence
-                            [ Parse.string "a"
-                            , Parse.string "b"
-                            , Parse.string "c"
-                            , Parse.string "d"
-                            , Parse.string "e"
+                            [ Parse.values [ "a" ]
+                            , Parse.values [ "b" ]
+                            , Parse.values [ "c" ]
+                            , Parse.values [ "d" ]
+                            , Parse.values [ "e" ]
                             ]
                     
-                    actual = parse "abcXef"
+                    actual = parse [ "a", "b", "c", "d", "e", "f" ]
+                    expected = Just { backlog = [ "f" ], values = [ "a", "b", "c", "d", "e" ] }
+                in
+                    Expect.equal expected actual
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.sequence: scheitert wenn ein innerer Parser scheitert (TokenParser)"
+            <| \ _ ->
+                let
+                    parse =
+                        Parse.sequence
+                            [ Parse.values [ "a" ]
+                            , Parse.values [ "b" ]
+                            , Parse.values [ "c" ]
+                            , Parse.values [ "d" ]
+                            , Parse.values [ "e" ]
+                            ]
+                    
+                    actual = parse [ "a", "b", "c", "X", "e", "f" ]
                     expected = Nothing
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.sequence: lässt den Call Stack nicht überlaufen"
+            "Parse.sequence: lässt den Call Stack nicht überlaufen (TokenParser)"
             -- Hinweis: Ich habe den Unterschied geprüft.
             -- Wenn ich sequence ohne sequenceHelper als Faltung über pair ausdrücke,
             -- dann läuft schon für für n = 9999 der Call Stack über.
@@ -242,64 +243,64 @@ tests =
                 let
                     n = 9999
                     value = "x"
-                    parse = Parse.sequence ( Array.repeat n ( Parse.string value ) )
-                    input = String.join "" ( Array.repeat n value )
+                    parse = Parse.sequence ( Array.repeat n ( Parse.values [ value ] ) )
+                    input = Array.repeat n value
 
                     actual = parse input
-                    expected = Just { backlog = "", values = Array.repeat n value }
+                    expected = Just { backlog = [], values = Array.repeat n value }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
 -- map
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.map: scheitert wenn der innere Parser scheitert"
+            "Parse.map: scheitert wenn der innere Parser scheitert (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.map ( \ x -> x ) ( Parse.string "a" ) "xxx"
+                    actual = Parse.map ( \ x -> x ) ( Parse.values [ "a" ] ) [ "x", "x", "x" ]
                     expected = Nothing
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.map: ist erfolgreich wenn der innere Parser erfolgreich ist"
+            "Parse.map: ist erfolgreich wenn der innere Parser erfolgreich ist (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.map ( \ x -> x ) ( Parse.string "a" ) "abc"
-                    expected = Just { backlog = "bc", values = [ "a" ] }
+                    actual = Parse.map ( \ x -> x ) ( Parse.values [ "a" ] ) [ "a", "b", "c" ]
+                    expected = Just { backlog = [ "b", "c" ], values = [ "a" ] }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.map: operiert auf dem geparsten Wert"
+            "Parse.map: operiert auf dem geparsten Wert (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.map ( Array.map String.toUpper ) ( Parse.string "a" ) "abc"
-                    expected = Just { backlog = "bc", values = [ "A" ] }
+                    actual = Parse.map ( Array.map String.toUpper ) ( Parse.values [ "a" ] ) [ "a", "b", "c" ]
+                    expected =  Just { backlog = [ "b", "c" ], values = [ "A" ] }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
 -- andThen
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz Fuzz.string
-            "Parse.andThen: operiert auf dem ParseResult"
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.andThen: operiert auf dem ParseResult (TokenParser)"
             <| \ match ->
                 let
-                    parse = 
+                    parse =
                         Parse.andThen
                             ( \ r -> Just { backlog = r.backlog, values = [ 123 ] } )
-                            ( Parse.string match )
-
+                            ( Parse.values match )
+                    
                     actual = parse match
-                    expected = Just { backlog = "", values = [ 123 ] }
+                    expected = Just { backlog = [], values = [ 123 ] }
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
-        , Test.fuzz Fuzz.string
-            "Parse.andThen: kann den Parser scheitern lassen"
+        , Test.fuzz ( Fuzz.array Fuzz.string )
+            "Parse.andThen: kann den Parser scheitern lassen (TokenParser)"
             <| \ match ->
                 let
-                    actual = Parse.andThen ( \ r -> Nothing ) ( Parse.string match ) match
+                    actual = Parse.andThen ( \ r -> Nothing ) ( Parse.values match ) match
                     expected = Nothing
                 in
                     Expect.equal expected actual
@@ -307,51 +308,55 @@ tests =
 -- run
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.run: ein Ergebnis, vollständig geparste Eingabe"
+            "Parse.run: ein Ergebnis, vollständig geparste Eingabe (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.run ( Parse.string "abc" ) "abc"
-                    expected = Just "abc"
+                    actual = Parse.run ( Parse.values [ "a" ] ) [ "a" ]
+                    expected = Just "a"
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.run: ein Ergebnis, unvollständig geparste Eingabe > akzeptiert"
+            "Parse.run: ein Ergebnis, unvollständig geparste Eingabe > akzeptiert (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.run ( Parse.string "abc" ) "abcd"
+                    actual = Parse.run ( Parse.values [ "a" ] ) [ "a", "b" ]
                     expected = Nothing
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------
         , test
-            "Parse.run: mehrere Ergebnisse, unvollständig geparste Eingabe > abgelehnt"
+            "Parse.run: mehrere Ergebnisse, unvollständig geparste Eingabe > abgelehnt (TokenParser)"
             <| \ _ ->
                 let
-                    actual = Parse.run ( Parse.sequence [ Parse.string "a", Parse.string "b" ] ) "abcd"
-                    expected = Nothing
-                in
-                    Expect.equal expected actual
-        -------------------------------------------------------------------------------------------------------------
-        , test
-            "Parse.run: mehrere Ergebnisse, vollständig geparste Eingabe > abgelehnt"
-            <| \ _ ->
-                let
-                    actual = Parse.run ( Parse.sequence [ Parse.string "ab", Parse.string "cd" ] ) "abcd"
-                    expected = Nothing
-                in
-                    Expect.equal expected actual
-        -------------------------------------------------------------------------------------------------------------
-        , test
-            "Parse.run: aggregiertes Ergebnis, vollständig geparste Eingabe > akzeptiert"
-            <| \ _ ->
-                let
-                    parse = 
-                        Parse.sequence [ Parse.string "ab", Parse.string "cd" ]
-                        |> Parse.map ( String.join "" >> Array.singleton )
+                    parse = Parse.sequence [ Parse.values [ "a" ], Parse.values [ "b" ] ]
 
-                    actual = Parse.run parse "abcd"
-                    expected = Just "abcd"
+                    actual = Parse.run parse [ "a", "b", "c" ]
+                    expected = Nothing
+                in
+                    Expect.equal expected actual
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: mehrere Ergebnisse, vollständig geparste Eingabe > abgelehnt (TokenParser)"
+            <| \ _ ->
+                let
+                    parse = Parse.sequence [ Parse.values [ "a" ], Parse.values [ "b" ] ]
+                    
+                    actual = Parse.run parse [ "a", "b" ]
+                    expected = Nothing
+                in
+                    Expect.equal expected actual
+        -------------------------------------------------------------------------------------------------------------
+        , test
+            "Parse.run: aggregiertes Ergebnis, vollständig geparste Eingabe > akzeptiert (TokenParser)"
+            <| \ _ ->
+                let
+                    parse =
+                        Parse.sequence [ Parse.values [ "a" ], Parse.values [ "b" ] ]
+                        |> Parse.map ( String.join "" >> Array.singleton )
+                    
+                    actual = Parse.run parse [ "a", "b" ]
+                    expected = Just "ab"
                 in
                     Expect.equal expected actual
         -------------------------------------------------------------------------------------------------------------

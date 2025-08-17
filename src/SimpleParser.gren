@@ -1,4 +1,4 @@
-module StringParser exposing
+module SimpleParser exposing
     ( Parser
     , Result
     , string
