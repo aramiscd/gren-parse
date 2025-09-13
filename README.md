@@ -2,8 +2,6 @@
 
 Basic building blocks for the construction of combinatory parsers
 
-[![Tests](https://github.com/aramiscd/gren-parse/actions/workflows/run-tests.yml/badge.svg)](https://github.com/aramiscd/gren-parse/actions/workflows/run-tests.yml)
-
 
 ## Example
 
