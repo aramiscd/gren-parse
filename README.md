@@ -46,7 +46,6 @@ So start with `SimpleParser` if you are new to parser construction.
 This will get you a long way.
 I have written a complete and correct but somewhat inefficient JSON parser this way.
 Sooner or later you will probably realize by yourself that you have to tokenize for certain parsing challenges.
-I realized that I needed this when I wanted to improve the efficiency of my JSON parser.
 
 
 ## Documentation
